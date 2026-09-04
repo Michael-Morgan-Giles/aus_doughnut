@@ -1,0 +1,28 @@
+domain,dimension,indicator,Date,value,boundary,ratio,indCode
+social,food,food_insecurity,2024,15.1,0,0.151,NU1
+social,health,under_5_mort_Rate_per_1000_live_births,2024,3.606601431,1,0.02606601431,HE1
+social,health,universal_health_coverage_index,2024,89,95,0.0631578947368421,HE2
+social,education,secondary_educ_completion_rate,2024,93.0525714285714,100,0.0694742857142865,ED1
+social,income and work,prop_pop_living_below_median_income,2024,11.4017351069983,0,0.114017351069983,IW1
+social,income and work,youth_neet,2024,8.5116071701,0,0.085116071701,IW2
+social,water and sanitation,safe_Water,2024,99.64509583,100,0.00354904169999992,WA1
+social,water and sanitation,safe_sanitation,2024,95.77289581,100,0.0422710419000001,WA2
+social,energy,prop_access_electricity,2024,100,100,0,EN1
+social,energy,prop_access_fuel_cook_clean_light,2024,100,100,0,EN2
+social,conectivity,public_transport_access,2024,88.0481818181818,100,0.119518181818182,CO1
+social,conectivity,prop_access_to_internet,2024,96.1,100,0.039,CO2
+social,housing,prop_in_need_on_waiting_list,2024,44.8044444444449,0,0.448044444444449,HO1
+social,equality,gender_inequality_index,2024,0.056,0,0.056,EQ1
+social,equality,perc_more_ind_prison_compared_to_non_ind_prisons_per_100000,2024,14.8360655737705,0,0.741803278688525,EQ2
+social,social cohesion,lack_social_support,2024,10.0431932573,0,0.100431932573,SC1
+social,social cohesion,palma_ratio,2024,3.3078336369283,2,0.653916818464152,SC2
+social,political voice,no_say_in_govt,2024,29.9697564999988,0,0.299697564999988,PV1
+social,peace and justice,homicide_rate_100000,2024,0.94,5,0,PJ1
+ecological,climate change,co2_emissions_per_capita,2024,14.477199,0.95,15.2391568421053,CC1
+ecological,ocean acidification,omega_a,2024,2.5161883149873,2.752,1.34274954216962,OA1
+ecological,Material Footprint,material_footprint,2024,31.1222,5.90000000000001,5.27494915254236,CP1
+ecological,Nutrient Pollution,fertilizer_cons_kg_per_capita,2024,101.462221305815,8.5,11.9367319183312,NP1
+ecological,Air Polution,Mean annual exposure cubic micrograms PM2.5,2024,6.414739,5,1.2829478,AP1
+ecological,Land Conversion,perc_land_forest_area,2024,17.421315,22.5,1.29152133464093,LC1
+ecological,Land Conversion,num_species_threatened,2024,1498.5,,,BD1
+ecological,Ozone Layer Depletion,ozone_depleting_subst_consump,2024,7.96,,,OD1

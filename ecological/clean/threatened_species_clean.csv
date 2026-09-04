@@ -1,0 +1,3 @@
+domain,dimension,indicator,Date,value,boundary
+ecological,Land Conversion,num_species_threatened,2018,348,0
+ecological,Land Conversion,num_species_threatened,2022,1115,0

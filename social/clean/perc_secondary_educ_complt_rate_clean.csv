@@ -1,0 +1,5 @@
+domain,dimension,indicator,Date,value,boundary
+social,education,secondary_educ_completion_rate,2010,85.02,100
+social,education,secondary_educ_completion_rate,2014,86.65,100
+social,education,secondary_educ_completion_rate,2016,87.3,100
+social,education,secondary_educ_completion_rate,2018,90.31,100

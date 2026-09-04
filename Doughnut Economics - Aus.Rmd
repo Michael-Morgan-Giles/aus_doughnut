@@ -1,0 +1,2206 @@
+---
+title: "Doughnut Economics:  So-called Australia"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+date: "`r format(Sys.time(), '%d %B %Y')`"
+
+---
+
+<style>
+/* Table of Contents Styles */
+#TOC {
+  color: #333333;
+  font-family: 'Arial', sans-serif; 
+  font-size: 16px; 
+  border-color: #333333;
+}
+
+/* Header Styles */
+#header {
+  color: #B22222; 
+  background-color: #F9F9F9; 
+  opacity: 0.9; 
+  font-family: 'Arial', sans-serif;
+  font-size: 24px;
+  padding: 15px; 
+}
+
+/* Body Styles */
+body {
+  color: #000000; 
+  font-family: 'Arial', sans-serif;
+  background-color: #FFFFFF; 
+  line-height: 1.6; 
+}
+
+/*  Text Styles */
+pre {
+  color: #4D4D4D; 
+  background-color: #F0F8FF; 
+  border: 1px solid #B0C4DE; 
+  padding: 10px; 
+}
+
+/* Header Styles */
+h1, h2, h3 {
+  color: #003366;
+  font-family: 'Arial', sans-serif;
+}
+
+/* Link Styles */
+a {
+  color: #003366; 
+  text-decoration: none; 
+}
+
+a:hover {
+  text-decoration: underline; 
+}
+</style>
+
+# Introduction
+
+The most recent update to the doughnut economic framework was published by [Andrew Fanning and Kate Raworth](https://www.nature.com/articles/s41586-025-09385-1?source=post_page-----30b7d6572192---------------------------------------). It highlights a world out of balance along both social and ecological lines. It further highlights the highly unequal social and ecological outcomes across countries:
+
+*"Disaggregating these global findings shows that the richest 20% of nations, with 15% of the global population, contribute more than 40% of annual ecological overshoot, whereas the poorest 40% of countries, with 42% of the global population, experience more than 60% of the social shortfall."*
+
+So-called Australia is one of these top 20% of rich nations significantly contributing to the ecological overshoot, whilst also potentially failing to ensure a minimum social foundation for its citizens. This research seeks to quantify the ecological overshoot and social shortfall for  Australia. 
+
+I adopt 19 social and 6 ecological indicators at the national level. For the details on data collection, please see this notebook detailing each indicator, its sources, and choice of boundary [here]( https://github.com/Michael-Morgan-Giles/essays/blob/main/doughnut_econ_update/data/data_collection.ipynb) *(if you do not have access to this repository, this document can be provided upon request)*. The foundation of this analysis follows the same method as [Andrew Fanning's and Kate Raworth's paper](https://www.nature.com/articles/s41586-025-09385-1?source=post_page-----30b7d6572192---------------------------------------). That is, I calculate the ratios in relation to social foundations and ecological ceilings for each indicator, I compare the changes for each indicator over time, I estimate linear trends for each indicator, and finally compare how the estimated trends stack up against the necessary trends for each indicator to eliminate either their overshoot by 2050 for ecological indicators or their shortfall by 2030 for social indicators. 
+
+To summarise the high level findings, all ecological indicators are overshooting their boundary, and 15 of the 19 social indicators are below their social foundation. 
+
+In terms of changes over time, 3 of the 6 ecological indicators are worsening, and those that are improving are both significantly overshooting the ecological ceiling and are not improving at a rate fast enough to eliminate their overshoot by 2050. 
+
+13 of the 19 social indicators are improving. However, only two are improving at a rate that will see those indicators reach their social foundation by 2030. Furthermore, some social indicators such as access to housing, racial equality, and income inequality and worsening significantly.
+
+Overall, for one of the richest countries in the world,  Australia is both significantly overshooting the ecological boundaries for a livable planet, and failing to meet key social foundations for Australians.
+
+I want to highlight that this work has not been peer-reviewed as of yet. There is potential for mistakes in the following analysis. Limitations to this research and future directions are explored at the end of this document.
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(fig.align = 'center', echo = TRUE)
+
+```
+
+```{r clear memory and data paths, echo=FALSE, eval=TRUE}
+# Clear memory
+rm(list=ls())
+
+# set paths and parameters for later use
+data_import_path <- "/home/michael/Projects/aus_doughnut/"
+data_output_path <- "/home/michael/Projects/aus_doughnut/outputs/"
+
+```
+
+If you want to see what packages I'm using for this analysis, you can expand this code chunk here *(click "show" to expand)*. 
+
+```{r data, include = TRUE, message=FALSE, collapse= TRUE}
+library(tidyverse)
+library(ggplot2)
+library(data.table)
+library(jsonlite)
+library(zoo)
+library(scales)
+library(ggpubr)
+library(lmtest)
+library(sandwich)
+library(broom)
+```
+
+Similarly, I load in all the necessary data sets for the social and ecological indicators in this code chunk here *(click "show" to expand)*.
+
+```{r load in all datasets}
+######
+# social indicators
+#####
+
+second_educ <- setDT(read.csv(paste0(data_import_path, "/social/clean/perc_secondary_educ_complt_rate_clean.csv")))
+poverty <- setDT(read.csv(paste0(data_import_path, "/social/clean/prop_pop_below_median_inc_clean.csv")))
+pub_transport <- setDT(read.csv(paste0(data_import_path, "/social/clean/access_public_transport_clean.csv")))
+waiting_list <- setDT(read.csv(paste0(data_import_path, "/social/clean/wait_list_clean.csv")))
+gender <- setDT(read.csv(paste0(data_import_path, "/social/clean/GII_clean.csv")))
+palma <- setDT(read.csv(paste0(data_import_path, "/social/clean/palma_clean.csv")))
+govt <- setDT(read.csv(paste0(data_import_path, "/social/clean/no_say_govt_clean.csv")))
+## Food Insecurity
+food_insecure <- setDT(read.csv(paste0(data_import_path, "/social/clean/food_insecure_clean.csv"))) 
+
+## mortality rate under 5 per 1000
+mort_rate <- setDT(read.csv(paste0(data_import_path, "/social/clean/under_5_mort_rate_clean.csv"))) 
+
+## universal heatlh coverage
+uhc_df  <- setDT(read.csv(paste0(data_import_path, "/social/clean/uhc_clean.csv"))) 
+
+# Youth not in employment, education or training
+youth_neet <- setDT(read.csv(paste0(data_import_path, "/social/clean/Youth_NEET_clean.csv"))) 
+
+## access to safe water
+safe_water <- setDT(read.csv(paste0(data_import_path, "/social/clean/access_safe_water_clean.csv"))) 
+
+## access to safe sanitation
+safe_sanitation <- setDT(read.csv(paste0(data_import_path, "/social/clean/access_safe_sanitation_clean.csv"))) 
+
+## access to energy
+energy <- setDT(read.csv(paste0(data_import_path, "/social/clean/access_energy_clean.csv"))) 
+
+## access to clean fueld and tech for cooking, heating and lighting
+clean_fuel <- setDT(read.csv(paste0(data_import_path, "/social/clean/access_fuel_clean.csv"))) 
+
+# internet access
+internet_access <- setDT(read.csv(paste0(data_import_path, "/social/clean/access_internet_clean.csv")))
+
+# no difference in imprisonment rate
+imprisonment <- setDT(read.csv(paste0(data_import_path, "/social/clean/imprison_rates_clean.csv")))
+
+# lack of social support
+social_support <- setDT(read.csv(paste0(data_import_path, "/social/clean/lack_social_support_clean.csv")))
+
+# homicide per 100000
+homicide <- setDT(read.csv(paste0(data_import_path, "/social/clean/homicide_clean.csv")))
+
+######
+# ecoligical indicators
+#####
+fert <- setDT(read.csv(paste0(data_import_path, "/ecological/clean/fertiliser_cons_clean.csv")))
+air <- setDT(read.csv(paste0(data_import_path, "/ecological/clean/pm25_pollution_clean.csv")))
+forest <- setDT(read.csv(paste0(data_import_path, "/ecological/clean/forest_cover_clean.csv")))
+species <- setDT(read.csv(paste0(data_import_path, "/ecological/clean/threatened_species_clean.csv")))
+ozone <- setDT(read.csv(paste0(data_import_path, "/ecological/clean/ozone_clean.csv")))
+
+## co2 emissions per cap
+co2_dt <- setDT(read.csv(paste0(data_import_path, "/ecological/clean/CO2_clean.csv"))) 
+
+## aragonite levels 
+acid <- setDT(read.csv(paste0(data_import_path, "/ecological/clean/acid_clean.csv"))) 
+
+## aragonite levels 
+material_footprint <- setDT(read.csv(paste0(data_import_path, "/ecological/clean/material_footprint_clean.csv"))) 
+
+# use to estimate trends later
+full_non_interp_dt <- rbind(food_insecure,
+                   mort_rate,
+                   uhc_df,
+                   second_educ,
+                   poverty, 
+                   youth_neet,
+                   safe_water,
+                   safe_sanitation,
+                   energy,
+                   clean_fuel,
+                   pub_transport, 
+                   internet_access,
+                   waiting_list, 
+                   gender, 
+                   imprisonment,
+                   social_support,
+                   palma, 
+                   govt, 
+                   homicide,
+                   co2_dt,
+                   acid,
+                   material_footprint,
+                   fert, 
+                   air,
+                   forest, 
+                   species,
+                   ozone,
+                   fill = TRUE # fill colls
+                   )
+  
+
+# write_csv(full_non_interp_dt, paste0(data_output_path, ""))
+  
+```
+
+For the data sets that do not have complete series, I either interpolate for the data missing between the minimum and maximum years in the time series, or I extrapolate for years outside the time series of the data collected. Interpolation and extrapolation are done linearly. For a few select variables that are just missing the most recent observation, I simply bring forward the value from the prior year to the next year. Later on in the trend analysis, I do no use this extrapolated data because it would bias the estimates of those trends significantly. 
+
+Feel free to check out the code here *(click "show" to expand)*.
+
+```{r interporlation and extraporlation}
+
+######
+# secondary education
+## carry forward last value
+#####
+# save original value
+uhc_df[, value_orig := value]
+
+# fill in missing years with nulls
+uhc_df <- uhc_df %>%
+  complete(domain,
+           dimension,
+           indicator,
+           Date = seq(min(Date), 2024, by = 1),
+           fill = list(value = NA)) 
+
+#  carry forward last value
+uhc_df <- setDT(uhc_df %>%
+  mutate(extrap_value = na.approx(value, na.rm = FALSE, rule = 2)) %>% # carry forward one year
+  mutate(value = extrap_value)
+  )
+
+######
+# secondary education
+## interpolate and extrapolate
+#####
+
+# save original value
+second_educ[, value_orig := value]
+
+# fill in missing years with nulls
+second_educ <- second_educ %>%
+  complete(domain,
+           dimension,
+           indicator,
+           Date = seq(min(Date), 2024, by = 1),
+           fill = list(value = NA)) 
+
+# interpolation and extrapolation
+second_educ <- setDT(second_educ %>%
+  mutate(extrap_value = coalesce(value, predict(lm(value ~ Date), across(Date)))) %>% # extrapolate
+  mutate(interp_value = na.approx(value, x = Date, na.rm = FALSE))  %>% # interpolate
+  mutate(value = ifelse(is.na(interp_value), extrap_value, interp_value)) # choose extrap if interp is na (thumbs up)
+  )
+
+# write.csv(second_educ, paste0())
+
+######
+# population living below 50% of median income
+## extrapolate and interpolate
+#####
+
+# save original value
+poverty[, value_orig := value]
+
+# fill in missing years with nulls
+poverty <- poverty %>%
+  complete(domain,
+           dimension,
+           indicator,
+           Date = seq(min(Date), 2024, by = 1),
+           fill = list(value = NA)) 
+
+# interpolation and extrapolation
+poverty <- setDT(poverty %>%
+  mutate(extrap_value = coalesce(value, predict(lm(value ~ Date), across(Date)))) %>% # extrapolate
+  mutate(interp_value = na.approx(value, x = Date, na.rm = FALSE))  %>% # interpolate
+  mutate(value = ifelse(is.na(interp_value), extrap_value, interp_value)) # choose extrap if interp is na (thumbs up)
+  )
+
+# write.csv(poverty, paste0())
+
+######
+# public transport
+## interpolate 
+#####
+
+# save original value
+pub_transport[, value_orig := value]
+
+# fill in missing years with nulls
+pub_transport <- pub_transport %>%
+  complete(domain,
+           dimension,
+           indicator,
+           Date = seq(min(Date), 2025, by = 1),
+           fill = list(value = NA)) 
+
+# interpolation 
+pub_transport <- setDT(pub_transport %>%
+  mutate(interp_value = na.approx(value, x = Date, na.rm = FALSE))  %>% # interpolate
+  mutate(value = interp_value)
+  )
+
+# write.csv(pub_transport, paste0())
+
+######
+# Social Housing Waiting List
+## extrapolate 
+#####
+
+# save original value
+waiting_list[, value_orig := value]
+
+# fill in missing years with nulls
+waiting_list <- waiting_list %>%
+  complete(domain,
+           dimension,
+           indicator,
+           Date = seq(min(Date), 2024, by = 1),
+           fill = list(value = NA)) 
+
+#  extrapolation
+waiting_list <- setDT(waiting_list %>%
+  mutate(extrap_value = coalesce(value, predict(lm(value ~ Date), across(Date)))) %>% # extrapolate
+  mutate(value = extrap_value)
+  )
+
+# write.csv(waiting_list, paste0())
+
+######
+# gender inequality index
+## just carry value forward one year
+#####
+
+# save original value
+gender[, value_orig := value]
+
+# fill in missing years with nulls
+gender <- gender %>%
+  complete(domain,
+           dimension,
+           indicator,
+           Date = seq(min(Date), 2024, by = 1),
+           fill = list(value = NA)) 
+
+#  extrapolation
+gender <- setDT(gender %>%
+  mutate(extrap_value = na.approx(value, na.rm = FALSE, rule = 2)) %>% # carry forward one year
+  mutate(value = extrap_value)
+  )
+
+# write.csv(gender, paste0())
+
+######
+# palma ratio
+## extrapolate
+#####
+
+# save original value
+palma[, value_orig := value]
+
+# fill in missing years with nulls
+palma <- palma %>%
+  complete(domain,
+           dimension,
+           indicator,
+           Date = seq(min(Date), 2024, by = 1),
+           fill = list(value = NA)) 
+
+#  extrapolation
+palma <- setDT(palma %>%
+  mutate(extrap_value = coalesce(value, predict(lm(value ~ Date), across(Date)))) %>% # extrapolate
+  mutate(value = extrap_value)
+  )
+
+# write.csv(palma, paste0())
+
+######
+# no say in government
+## extrapolate and interpolate
+#####
+
+# save original value
+govt[, value_orig := value]
+
+# fill in missing years with nulls
+govt <- govt %>%
+  complete(domain,
+           dimension,
+           indicator,
+           Date = seq(min(Date), 2024, by = 1),
+           fill = list(value = NA)) 
+
+# interpolation and extrapolation
+govt <- setDT(govt %>%
+  mutate(extrap_value = coalesce(value, predict(lm(value ~ Date), across(Date)))) %>% # extrapolate
+  mutate(interp_value = na.approx(value, x = Date, na.rm = FALSE))  %>% # interpolate
+  mutate(value = ifelse(is.na(interp_value), extrap_value, interp_value)) # choose extrap if interp is na (thumbs up)
+  )
+
+# write.csv(govt, paste0())
+
+######
+# fertilizer use
+## carry forward one year
+#####
+
+# save original value
+fert[, value_orig := value]
+
+# fill in missing years with nulls
+fert <- fert %>%
+  complete(domain,
+           dimension,
+           indicator,
+           Date = seq(min(Date), 2024, by = 1),
+           fill = list(value = NA)) 
+
+#  extrapolation
+fert <- setDT(fert %>%
+  mutate(extrap_value = na.approx(value, na.rm = FALSE, rule = 2)) %>% # carry forward one year
+  mutate(value = extrap_value)
+  )
+
+######
+# air pollution
+## carry forward one year
+#####
+
+
+# save original value
+air[, value_orig := value]
+
+# fill in missing years with nulls
+air <- air %>%
+  complete(domain,
+           dimension,
+           indicator,
+           Date = seq(min(Date), 2024, by = 1),
+           fill = list(value = NA)) 
+
+#  extrapolation
+air <- setDT(air %>%
+  mutate(extrap_value = na.approx(value, na.rm = FALSE, rule = 2)) %>% # carry forward one year
+  mutate(value = extrap_value)
+  )
+
+######
+# land conversion / forest cover
+## carry forward one year
+#####
+
+# save original value
+forest[, value_orig := value]
+
+# fill in missing years with nulls
+forest <- forest %>%
+  complete(domain,
+           dimension,
+           indicator,
+           Date = seq(min(Date), 2024, by = 1),
+           fill = list(value = NA)) 
+
+#  one year forward
+forest <- setDT(forest %>%
+  mutate(extrap_value = na.approx(value, na.rm = FALSE, rule = 2)) %>% # carry forward one year
+  mutate(value = extrap_value)
+  )
+
+######
+# threatened species
+## interpolate and extrapolate
+#####
+
+# save original value
+species[, value_orig := value]
+
+# fill in missing years with nulls
+species <- species %>%
+  complete(domain,
+           dimension,
+           indicator,
+           Date = seq(min(Date), 2024, by = 1),
+           fill = list(value = NA)) 
+
+# interpolation and extrapolation
+species <- setDT(species %>%
+  mutate(extrap_value = coalesce(value, predict(lm(value ~ Date), across(Date)))) %>% # extrapolate
+  mutate(interp_value = na.approx(value, x = Date, na.rm = FALSE))  %>% # interpolate
+  mutate(value = ifelse(is.na(interp_value), extrap_value, interp_value)) # choose extrap if interp is na (thumbs up)
+  )
+
+# write.csv(species, paste0())
+
+
+######
+# ozone depleting substances
+## carry forward 4 years
+#####
+
+# save original value
+ozone[, value_orig := value]
+
+# fill in missing years with nulls
+ozone <- ozone %>%
+  complete(domain,
+           dimension,
+           indicator,
+           Date = seq(min(Date), 2024, by = 1),
+           fill = list(value = NA)) 
+
+#  carry forward last value
+ozone <- setDT(ozone %>%
+  mutate(extrap_value = na.approx(value, na.rm = FALSE, rule = 2)) %>% # carry forward one year
+  mutate(value = extrap_value)
+  )
+
+## clear garbage after all those transformations
+invisible(gc())
+
+```
+
+Next, I bind both the social and ecological data sets together, before finally binding them into a single data set.
+
+Feel free to check out the code here *(click "show" to expand)*.
+
+```{r binding datasets}
+
+######
+# Social dataset
+#####
+
+social_dt <- rbind(food_insecure,
+                   mort_rate,
+                   uhc_df,
+                   second_educ, # filled data from cell above
+                   poverty, # filled data from cell above
+                   youth_neet,
+                   safe_water,
+                   safe_sanitation,
+                   energy,
+                   clean_fuel,
+                   pub_transport, # filled data from cell above
+                   internet_access,
+                   waiting_list, # filled data from cell above
+                   gender, # filled data from cell above
+                   imprisonment,
+                   social_support,
+                   palma, #filled data from cell above
+                   govt, #filled data from cell above
+                   homicide,
+                   fill = TRUE # fill extrap/interp cols with nulls
+                   )
+
+# write_csv(social_dt, paste0(data_output_path, ""))
+
+rm(list = setdiff(ls(), c("social_dt", 
+                          "data_import_path",
+                          "data_output_path",
+                          "fert",
+                          "air",
+                          "forest",
+                          "species",
+                          "ozone",
+                          "co2_dt",
+                          "acid",
+                          "material_footprint",
+                          "full_non_interp_dt")))
+
+######
+# Ecological dataset
+#####
+
+eco_dt <- rbind(co2_dt,
+                acid,
+                material_footprint,
+                fert, # from data filled in cell above, 
+                air,# from data filled in cell above
+                forest, # from data filled in cell above
+                species, # from data filled in cell above
+                ozone, # from data filled in cell above
+                fill = TRUE)
+
+# write_csv(eco_dt, paste0(data_output_path, ""))
+
+rm(list = setdiff(ls(), c("full_non_interp_dt", "eco_dt", "social_dt", "data_import_path", "data_output_path")))
+
+######
+# Full dataset
+## interp and extra variables
+#####
+
+#TODO: why was prop_access_electricity duplicating? 
+full_dt <- unique(setDT(rbind(social_dt, eco_dt)))
+
+# write_csv(full_dt, paste0(data_output_path, ""))
+
+rm(list = setdiff(ls(), c("full_dt", "full_non_interp_dt", "data_import_path", "data_output_path")))
+invisible(gc())
+
+```
+
+# Ratio Calculation
+
+Now, with the full data set I will calculate the ratios for each variable. For social indicators, the `ratio` variable represents the shortfall, whilst for ecological indicators it represents the overshoot.
+
+Depending on the time series, there are a few ways to calculate the social shortfall and ecological overshoot. 
+
+For the social time series that have their value as a percentage approaching zero, I calculate the ratio of their shortfall as:
+
+$$ \text{ShortFall Ratio}_t =  \frac{\text{Value}_t}{100 - \text{Boundary}_t}$$
+
+This calculation is used for indicators such as food insecurity, the proportion of the population living below 50% of the median income, or the lack of social support *(and others)*. Functionally, this is just representing this indicator as a percentage of the population below the social foundation. 
+
+If the social indicator is a time series approach 100%, there is a similar but slightly different calculation for the ratio:
+
+$$ \text{ShortFall Ratio}_t =  1 - \frac{\text{Value}_t}{\text{Boundary}_t}$$
+
+This calculation is used for indicators such as universal health coverage, access to safe water or sanitation, and access to public transportation *(and others)*. Again, this is functionally representing this indicator as a percentage of the population below the social foundation. 
+
+Finally, there are some indicators that are a percentage but their boundary is not zero or one hundred percent. In these scenarios, the calculation of the ratio generally follows:
+
+$$ \text{ShortFall Ratio}_t =  \max(\frac{\text{Value}_t}{\text{Boundary}_t} - 1,0)$$
+
+With some slight variations depending on the level of the data, this calculation is used for indicators such as the under-5 mortality rate *(boundary of 1)*, the Palma ratio *(boundary of 2)*, and the homicide rate *(boundary of 5)*. Crucially, for this calculation, this "shortfall" calculation doesn't represent a proportion of the population that is below the social foundation, but rather how large or intense the shortfall is based on the set boundary. For example, if the Palma ratio is 4, then the "shortfall" is 100%. However, this doesn't mean there is 100% inequality, rather that the magnitude of income inequality is 100% relative to the boundary limit of 2. Note that it is possible for this shortfall to be negative i.e. it is above the social foundation. In those instances, I set the value equal to zero purely to ensure the ratio is bounded between 0 and 1.  
+
+This adds some complexity to interpretation compared to some of the other social foundations. However, given data availability I choose to go ahead with these indicators. 
+
+Finally, a unique calculation is used for the gap in imprisonment rates between Indigenous and non-Indigenous Australians. This is because the data set that is chosen is expressed as a percentage difference between the two groups *(instead of as a proportion of the population)*. For this indicator, I apply the following calculation for the ratio: 
+
+$$ \text{ShortFall Ratio}_t = \frac{\text{Value}_t - \text{Boundary}_t}{\text{Max Scenario} - \text{Boundary}_t}$$
+
+This calculation now expresses the difference in imprisonment rates between Indigenous and non-Indigenous Australians as a percentage in relation to a $\text{Max Scenario}$. In this analysis, I have set this $\text{Max Scenario}$ to be $20$ i.e. the difference in imprisonment rates per 100,000 people is 20 times higher for Indigenous Australians compared to non-Indigenous Australians. I choose 20 as the worst case because currently the value for 2025 is 15.76 (or a 1567% higher imprisonment rate for Indigenous Australians). This is an arbitrary choice, but it allows me to represent the large differences in imprisonment rates on a scale between 0 and 1. This means that the "shortfall" can now be interpreted as a percentage difference in imprisonment rates relative to this worst-case scenario. Unfortunately, this added complexity means more care needs to be taken when interpreting the ratio for this indicator. 
+
+In terms of calculating the ecological overshoot ratio, all indicators *(except for ocean acidification)* are calculated as such:
+
+$$ \text{Overshoot Ratio}_t = \frac{\text{Value}_t}{\text{Boundary}_t} $$
+
+Because there is a baseline figure from the original paper for the ocean acidification indicator, I calculate the overshoot for that indicator as followa: 
+
+$$\text{Overshoot Ratio}_t^{\text{ocean acid}} = \frac{(1 - \frac{\text{Value}_t}{\text{Baseline}_t})}{(1 - \frac{\text{Boundary}_t}{\text{Baseline}_t})} $$
+
+Feel free to check out the code for the ratio calculations here *(click "show" to expand)*.
+
+```{r calculate ratios}
+
+######
+# social ratios
+#####
+
+## food_insecurity
+full_dt[indicator == "food_insecurity",  ratio := value / (100 - boundary)]
+
+##"under_5_mort_Rate_per_1000_live_births"                      
+full_dt[indicator == "under_5_mort_Rate_per_1000_live_births",   ratio := ((value / boundary) -1 )/ 100 ]
+
+##"universal_health_coverage_index"
+full_dt[indicator == "universal_health_coverage_index",  boundary := 95]
+full_dt[indicator == "universal_health_coverage_index",  ratio := 1 - value/boundary]
+
+##"secondary_educ_completion_rate"    
+full_dt[indicator == "secondary_educ_completion_rate", boundary := 100]
+full_dt[indicator == "secondary_educ_completion_rate", ratio := 1 - value/boundary]
+
+##prop_pop_living_below_median_income
+full_dt[indicator == "prop_pop_living_below_median_income", boundary := 0]
+full_dt[indicator == "prop_pop_living_below_median_income", ratio := value / (100 - boundary)]
+
+## "youth_neet"  
+full_dt[indicator == "youth_neet",  ratio := value / (100 - boundary)]
+
+## "safe_Water"
+full_dt[indicator == "safe_Water", ratio := 1 - value/boundary]
+
+## "safe_sanitation"
+full_dt[indicator == "safe_sanitation", ratio := 1 - value/boundary]
+
+## "prop_access_electricity"
+full_dt[indicator == "prop_access_electricity", ratio := 1 - value/boundary]
+
+full_dt[indicator == "prop_access_fuel_cook_clean_light", ratio := 1 - value/boundary]
+
+## "public_transport_access" 
+full_dt[indicator == "public_transport_access", boundary := 100]
+full_dt[indicator == "public_transport_access", ratio := 1 - value/boundary]
+
+## "prop_access_to_internet"
+full_dt[indicator == "prop_access_to_internet", ratio := 1 - value/boundary]
+
+## "prop_in_need_on_waiting_list"
+full_dt[indicator == "prop_in_need_on_waiting_list", boundary := 0]
+full_dt[indicator == "prop_in_need_on_waiting_list", ratio := value / (100 - boundary)]
+
+## "gender_inequality_index"
+full_dt[indicator == "gender_inequality_index", boundary := 0]
+full_dt[indicator == "gender_inequality_index", ratio := value / (1 - boundary)]
+
+## "perc_more_ind_prison_compared_to_non_ind_prisons_per_100000" 
+worst_case_scenario <- 20
+# full_dt[indicator == "perc_more_ind_prison_compared_to_non_ind_prisons_per_100000", ratio := (value - 1)/value] # old definition
+full_dt[indicator == "perc_more_ind_prison_compared_to_non_ind_prisons_per_100000", ratio := (value - boundary) / (worst_case_scenario - boundary)]
+
+## "lack_social_support"
+full_dt[indicator == "lack_social_support", ratio := value / (100 - boundary)]
+
+
+## "palma_ratio"
+full_dt[indicator == "palma_ratio", boundary := 2]
+full_dt[indicator == "palma_ratio", ratio := value/boundary - 1]
+
+## "no_say_in_govt"
+full_dt[indicator == "no_say_in_govt", boundary := 0]
+full_dt[indicator == "no_say_in_govt", ratio := value/(100-boundary)]
+
+## "homicide_rate_100000"
+full_dt[indicator == "homicide_rate_100000", boundary := 5] # changed the boundary to one cause I want us to be better!
+full_dt[indicator == "homicide_rate_100000", ratio := (value/ boundary) - 1]
+full_dt[indicator == "homicide_rate_100000" & ratio < 0, ratio := 0]
+
+######
+# Ecological ratios
+#####
+
+## "co2_emissions_per_capita"
+full_dt[indicator == "co2_emissions_per_capita",  ratio := (value/boundary)]
+
+## "omega_a" 
+# full_dt[indicator == "omega_a", boundary := 0.8*3.44]
+full_dt[indicator == "omega_a", ratio := (1-value/3.44)/(1-boundary/3.44)]
+
+## "fertilizer_cons_kg_per_capita"
+full_dt[indicator == "fertilizer_cons_kg_per_capita", boundary := 8.5]
+full_dt[indicator == "fertilizer_cons_kg_per_capita",  ratio := (value/boundary)]
+
+## "Mean annual exposure cubic micrograms PM2.5"
+full_dt[indicator == "Mean annual exposure cubic micrograms PM2.5", boundary := 5]
+full_dt[indicator == "Mean annual exposure cubic micrograms PM2.5", ratio := value/boundary]
+
+## "perc_land_forest_area"
+full_dt[indicator == "perc_land_forest_area", boundary := 22.5]
+full_dt[indicator == "perc_land_forest_area", ratio := boundary/value]
+
+#TODO: figure out a boundary for these ... 
+## "num_species_threatened"
+#full_dt[indicator == "num_species_threatened", boundary := 100] # weird but there should only be 100 threatened speceies (shrug)? *(background rate of threatenedness / extinction?)
+full_dt[indicator == "num_species_threatened", ratio := (1-value/0)/(1-boundary/0)]
+
+## "ozone_depleting_subst_consump"
+full_dt[indicator == "ozone_depleting_subst_consump", ratio := (1-value/0)/(1-boundary/0)]
+
+## material_footprint
+full_dt[indicator == "material_footprint", ratio := value/boundary]
+
+# full_dt[!indicator %in% c("num_species_threatened", "ozone_depleting_subst_consump"), sum(is.na(ratio))]
+
+```
+
+# First glimpse of the doughnut
+
+Below is the doughnut for the most recent year in the available time series, 2024. Note that I have limited the ecological overshoot axis to the centre of the doughnut. This is because the ecological overshoot is on such a large scale that you can't see the centre of the doughnut without limiting the overshoot axis. 
+
+```{r doughnut vis attempt for 2024 year, warning=FALSE, message=FALSE, fig.width = 16, fig.height = 10}
+
+doughnut24 <- full_dt[Date == 2024 & !is.na(ratio)] %>%
+  mutate(
+    status = fifelse(ratio > 0, "Breach", "Safe"),
+    boundary = 1, # acts as a relative boundary between social and ecoligical indicators
+    radius_min = fifelse(domain == "social", 
+                         boundary - abs(ratio), # this ensures the social indicators go inwards
+                         boundary),
+    radius_max = fifelse(domain == "social", 
+                         boundary, # similarly, makes that relative boundary the max length of the rectangle
+                         boundary + ratio),
+    angle_width = fifelse(domain == "social", 360 / 19, 360 / 6), # divide 360 degrees by 19 social indicators and 6 ecological ones
+    id_in_ring = ave(ratio, domain, FUN = seq_along), # creates an id for each social and ecological indicator 
+    angle_start = (id_in_ring - 1) * angle_width,
+    angle_end = id_in_ring * angle_width,
+    text_pos = fifelse(domain == "social", 1.5, 2.75),
+    indicator_clean = c("food\ninsecurity", "under-5\nmortality", "lack of\nhealth services", "incomplete secondary\nschool", 
+                        "societal\npoverty", "youth\nNEET", "unsafe drinking water", "unsafe\nsanitation",
+                        "lack of\nelectricity", "lack of\nclean fuel", "lack of\npublic transport", "lack of\ninternet",
+                         "social housing \nwaitlist", "gender inequality", "racial inequality", 
+                        "lack of\nsocial support", "income\ninequality", "No say in \ngovernment", "homicide\nrate",  
+                         "climate\nchange", "ocean\nacidification", "material\npfootprint", 
+                        "nutrient\npollution", "air\npollution", "land\nconversion")
+  )   %>% 
+  ggplot() +
+  geom_rect(aes(xmin = radius_min, xmax = radius_max, 
+                ymin = angle_start, ymax = angle_end, 
+                fill = domain), 
+            color = "white", size = 0.5, alpha = 0.8) +
+  geom_segment(aes(x = boundary, xend = boundary, y = 0, yend = 360), # the social foundation
+               color = "#227443", size = 2, alpha = 0.2) +
+  geom_segment(aes(x = boundary + 1, xend = boundary + 1, y = 0, yend = 360), # rhw ecoligical ceiling
+               color = "#227443", size = 5, alpha = 0.2) +
+    geom_rect(
+    aes(xmin = boundary, xmax = boundary + 1, ymin = 0, ymax = 360),
+    fill = "#6eb446",
+    alpha = 0.1,
+    inherit.aes = FALSE
+  ) +
+  coord_polar(theta = "y", start = 0, direction = -1) +
+  scale_fill_manual(values = c("social" = "#cc0243", "ecological" = "#cc0243"), name = "Status") + ##920130
+  geom_text(aes(
+    x = text_pos,
+    y = (angle_start + angle_end) / 2,
+    label = indicator_clean
+  ), size = 2.5, color = "black", fontface = "bold", check_overlap = TRUE) +
+  geom_text(aes(
+    x = text_pos,
+    y = (angle_start + angle_end) / 2, 
+    label = fifelse(status == "Breach", 
+                    paste0(round(ratio * 100, 1), "%"), 
+                    paste0(round(ratio * 100, 1), "%"))
+  ), size = 2.5, color = "black", vjust = 4) +
+  scale_x_continuous(limits = c(0, 3), oob = scales::oob_keep) +
+  coord_polar(theta = "y", start = 0, direction = -1)+
+  theme_void() +
+  theme(legend.position = "none")+
+  ggtitle(label = "doughnut for  Australia", 
+          subtitle = "Social Shortfall and Ecological Overshoot for 2024")
+
+doughnut24
+
+ggsave(paste0(data_output_path,"doughnut_24_plot.png"), 
+       plot = doughnut24,  #width = 183, height = 100, units = "mm", 
+       device = "png", dpi = 300)
+
+
+
+```
+
+Below we can see the time series for the social and ecological indicators in relation to their shortfall or overshoot. This data contains the interpolation and extrapolation estimates calculated above. Note that the y-axis for both plots have not been held constant across each plot to ensure each time series can be observed on its own scale. 
+
+```{r time series visualisations, fig.width = 10, fig.height = 8}
+# social
+full_dt[domain == "social"] %>% 
+  ggplot(aes(x = Date)) +
+  geom_hline(yintercept = 0, col = "black", linetype=6, lwd=0.8, alpha=0.5) +
+  geom_line(aes(y=ratio, colour=indicator), lwd=0.8) +
+  geom_point(aes(y=ratio, colour=indicator), size=1.3) +
+  scale_y_reverse(labels=scales::percent) +
+  facet_wrap(~dimension, ncol=4, scales = "free") +
+  labs(subtitle = "The social foundation and its indicators of global shortfall", 
+       x = "Year", 
+       y = "Social shortfall (0% = social foundation)") +
+  #theme_chart_SMALLM +
+  theme_classic() + 
+  theme(legend.position = "none")
+
+
+# ecological 
+full_dt[domain == "ecological" &
+          !indicator %in% c("num_species_threatened", "ozone_depleting_subst_consump")] %>% 
+  ggplot(aes(x = Date))+
+  geom_hline(yintercept = 1, col = "black", linetype=6, lwd=0.8, alpha=0.5)+
+  geom_line(aes(y=ratio, colour=indicator), lwd=0.8)+
+  geom_point(aes(y=ratio, colour=indicator), size=1.5)+
+  scale_y_continuous(labels=scales::percent_format(big.mark=","))+
+  #coord_cartesian(ylim = c(0,4))+
+  facet_wrap(~dimension, ncol = 3, scales = "free")+
+  labs(subtitle = "The ecological ceiling and its indicators of global overshoot",
+       x = "Year",
+       y = "Ecological overshoot (100% = planetary boundary)") +
+  #theme_chart_SMALLM +
+  theme_classic() +
+  theme(legend.position = "none")
+
+```
+
+
+Below, I assign some codes that will become helpful in later visualisations. Feel free to check out the code here *(click "show" to expand)*.
+
+```{r assign IND, message=FALSE, warning = FALSE}
+# to many nested if-elses to format nicely (should just join over from a unique data.table)
+
+# unique(full_dt[,indicator])
+
+full_dt[,  indCode := fifelse(indicator == "food_insecurity", "NU1", 
+	fifelse(indicator == "under_5_mort_Rate_per_1000_live_births", "HE1",
+	fifelse(indicator == "universal_health_coverage_index", "HE2",
+	fifelse(indicator == "secondary_educ_completion_rate", "ED1",
+	fifelse(indicator == "prop_pop_living_below_median_income", "IW1",
+	fifelse(indicator == "youth_neet", "IW2",
+	fifelse(indicator == "safe_Water", "WA1",
+	fifelse(indicator == "safe_sanitation", "WA2",
+	fifelse(indicator == "prop_access_electricity", "EN1",
+  fifelse(indicator == "prop_access_fuel_cook_clean_light", "EN2",
+	fifelse(indicator == "public_transport_access", "CO1",
+	fifelse(indicator == "prop_access_to_internet", "CO2",
+	fifelse(indicator == "prop_in_need_on_waiting_list", "HO1",
+	fifelse(indicator == "gender_inequality_index", "EQ1",
+	fifelse(indicator == "perc_more_ind_prison_compared_to_non_ind_prisons_per_100000", "EQ2",
+	fifelse(indicator == "lack_social_support", "SC1",
+	fifelse(indicator == "palma_ratio", "SC2",
+	fifelse(indicator == "no_say_in_govt", "PV1",
+	fifelse(indicator == "homicide_rate_100000", "PJ1",       
+	fifelse(indicator == "co2_emissions_per_capita", "CC1",
+	fifelse(indicator == "omega_a", "OA1",
+	fifelse(indicator == "material_footprint", "CP1",
+	fifelse(indicator == "fertilizer_cons_kg_per_capita", "NP1",
+	fifelse(indicator == "Mean annual exposure cubic micrograms PM2.5", "AP1",
+	fifelse(indicator == "perc_land_forest_area", "LC1",
+	fifelse(indicator == "num_species_threatened", "BD1",
+	fifelse(indicator == "ozone_depleting_subst_consump", "OD1", "ERROR")))))))))))))))))))))))))))]
+
+# save 2024 data for visualisation
+fwrite(full_dt[Date == 2024, 
+               .(domain,
+                 dimension, 
+                 indicator,
+                 Date,
+                 value,
+                 boundary,
+                 ratio,
+                 indCode)], 
+       paste0(data_output_path, "full_ratio_boundaries_2024.csv"))
+
+```
+
+There are some transformations that are key to the creation of a JSON file that the original authors used to visualise the doughnut using JavaScript. Unfortunately, I don't know JavaScript, so I have just tried to make do with `R`. That code is available upon request. 
+
+```{r JSON transformation, include=FALSE}
+json_dat <- full_dt[Date < 2025]
+json_dat[,":="(grp="World", grpCode="WLD"#,
+               #"Australia", grpCode = "AUS"
+               )]
+
+placeList <- json_dat %>%
+  count(grp, grpCode) %>%
+  select(-n)
+
+ecoMinmax <- json_dat[domain == "ecological" & !indicator %in% c("num_species_threatened", "ozone_depleting_subst_consump"),
+        .(min = min(ratio, na.rm=TRUE),
+          max = max(ratio, na.rm=TRUE)),
+        by = .(grp, grpCode)][order(grp, grpCode)] %>%  ungroup()
+
+
+socMinmax <- json_dat[domain == "social",
+        .(min = min(ratio, na.rm=TRUE),
+          max = max(ratio, na.rm=TRUE)),
+        by = .(grp, grpCode)][order(grp, grpCode)] %>%  ungroup()
+
+#------------------------------------------------------------------------
+#	MY FUNCTIONS TO EXTRACT AND SPREAD VALUES FOR JSON NESTING
+#------------------------------------------------------------------------
+#functions
+#get minMax ranges by indicator code
+rangeRatio <- function(dat, ...){
+  args <- rlang::enexprs(...)
+  dat %>% filter(!!! args) %>%
+    group_by(grp, grpCode) %>%
+    summarise(min = min(ratio, na.rm=T),
+              max = max(ratio, na.rm=T)) %>%
+    ungroup()
+}
+
+#get ratios by indicator code
+spreadRatio <- function(dat, ...){
+  args <- rlang::enexprs(...)
+  dat %>% filter(!!! args) %>%
+    select(grp, grpCode, Date, ratio) %>%
+    pivot_wider(names_from=Date, values_from=ratio)
+}
+
+#make blank tibbles to fill global series1 or series2 (NOTE: "WORLD"/"WLD" ARE HARD-CODED/NOT SCALABLE)
+#(depending on if there are 1 or 2 indicators per dimension)
+blankRatio <- function(){
+  tibble(#grp="Australia", grpCode="AUS", 
+         grp="World", grpCode="WLD", Date=2000:2024, val=0) %>%
+    pivot_wider(names_from=Date, values_from=val)
+}
+
+#make blank group tibbles to fill series1 or series2
+#(depending on if there are 1 or 2 indicators per dimension)
+blankRatioGrp <- function(dat, ...){
+  args <- rlang::enexprs(...)
+  dat %>% filter(!!! args) %>%
+    select(grp, grpCode, Date, ratio) %>%
+    mutate(ratio=0) %>%
+    pivot_wider(names_from=Date, values_from=ratio)
+}
+
+
+#loop to pull out variable values and put into a list
+pullVars <- function(dat,index){
+  dat <- dat %>% select(-grp, -grpCode)
+  for(j in 1:ncol(dat)){
+    myList[j] <- list(
+      dat[[j]][index])
+  }
+  myList
+}
+
+# unique(json_dat[, .(indCode, indicator, domain)][order(domain)])
+
+#-------------------------------------------------------------------------------------------------
+#					PREP ECOLOGICAL VARIABLES FOR NESTING
+#-------------------------------------------------------------------------------------------------
+#climate change - CO2
+cc1Range <- rangeRatio(json_dat, indCode == "CC1")
+cc1Ratio1 <- spreadRatio(json_dat, indCode == "CC1") 
+cc1Ratio2 <- blankRatio() 
+
+# ocean acidification
+oa1Range <- rangeRatio(json_dat, indCode == "OA1")
+oa1Ratio1 <- spreadRatio(json_dat, indCode == "OA1") 
+oa1Ratio2 <- blankRatio() 
+
+# material footprint
+cp1Range <- rangeRatio(json_dat, indCode == "CP1")
+cp1Ratio1 <- spreadRatio(json_dat, indCode == "CP1") 
+cp1Ratio2 <- blankRatio() 
+
+# fertilizer cons
+np1Range <- rangeRatio(json_dat, indCode == "NP1")
+np1Ratio1 <- spreadRatio(json_dat, indCode == "NP1") 
+np1Ratio2 <- blankRatio() 
+
+# air pollution
+ap1Range <- rangeRatio(json_dat, indCode == "AP1")
+ap1Ratio1 <- spreadRatio(json_dat, indCode == "AP1") 
+ap1Ratio2 <- blankRatio() 
+
+# deforestation
+lc1Range <- rangeRatio(json_dat, indCode == "LC1")
+lc1Ratio1 <- spreadRatio(json_dat, indCode == "LC1") 
+lc1Ratio2 <- blankRatio() 
+
+
+#-------------------------------------------------------------------------------------------------
+#					PREP SOCIAL VARIABLES FOR NESTING
+#-------------------------------------------------------------------------------------------------
+# food insecurity
+nu1Range <- rangeRatio(json_dat, indCode == "NU1")
+nu1Ratio1 <- spreadRatio(json_dat, indCode == "NU1")
+nu1Ratio2 <- blankRatio()
+
+# under 5 mortality rate
+he1Range <- rangeRatio(json_dat, indCode == "HE1")
+he1Ratio1 <- spreadRatio(json_dat, indCode == "HE1")
+he1Ratio2 <- blankRatio()
+
+# universal health coverage
+he2Range <- rangeRatio(json_dat, indCode == "HE2")
+he2Ratio1 <- spreadRatio(json_dat, indCode == "HE2")
+he2Ratio2 <- blankRatio()
+
+# secondary educ completion
+ed1Range <- rangeRatio(json_dat, indCode == "ED1")
+ed1Ratio1 <- spreadRatio(json_dat, indCode == "ED1")
+ed1Ratio2 <- blankRatio()
+
+# pooverty
+iw1Range <- rangeRatio(json_dat, indCode == "IW1")
+iw1Ratio1 <- spreadRatio(json_dat, indCode == "IW1")
+iw1Ratio2 <- blankRatio()
+
+# youth neet
+iw2Range <- rangeRatio(json_dat, indCode == "IW2")
+iw2Ratio1 <- spreadRatio(json_dat, indCode == "IW2")
+iw2Ratio2 <- blankRatio()
+
+# access to safe water
+wa1Range <- rangeRatio(json_dat, indCode == "WA1")
+wa1Ratio1 <- spreadRatio(json_dat, indCode == "WA1")
+wa1Ratio2 <- blankRatio()
+
+# access to safer sanitation
+wa2Range <- rangeRatio(json_dat, indCode == "WA2")
+wa2Ratio1 <- spreadRatio(json_dat, indCode == "WA2")
+wa2Ratio2 <- blankRatio()
+
+# prop with electricity
+en1Range <- rangeRatio(json_dat, indCode == "EN1")
+en1Ratio1 <- spreadRatio(json_dat, indCode == "EN1")
+en1Ratio2 <- blankRatio()
+
+# access to clean fuel
+en2Range <- rangeRatio(json_dat, indCode == "EN2")
+en2Ratio1 <- spreadRatio(json_dat, indCode == "EN2")
+en2Ratio2 <- blankRatio()
+
+# access to public transport
+co1Range <- rangeRatio(json_dat, indCode == "CO1")
+co1Ratio1 <- spreadRatio(json_dat, indCode == "CO1")
+co1Ratio2 <- blankRatio()
+
+# access to internet
+co2Range <- rangeRatio(json_dat, indCode == "CO2")
+co2Ratio1 <- spreadRatio(json_dat, indCode == "CO2")
+co2Ratio2 <- blankRatio()
+
+# housing access
+ho1Range <- rangeRatio(json_dat, indCode == "HO1")
+ho1Ratio1 <- spreadRatio(json_dat, indCode == "HO1")
+ho1Ratio2 <- blankRatio()
+
+# gender inequality
+eq1Range <- rangeRatio(json_dat, indCode == "EQ1")
+eq1Ratio1 <- spreadRatio(json_dat, indCode == "EQ1")
+eq1Ratio2 <- blankRatio()
+
+# racial inequality
+eq2Range <- rangeRatio(json_dat, indCode == "EQ2")
+eq2Ratio1 <- spreadRatio(json_dat, indCode == "EQ2")
+eq2Ratio2 <- blankRatio()
+
+# social sup
+sc1Range <- rangeRatio(json_dat, indCode == "SC1")
+sc1Ratio1 <- spreadRatio(json_dat, indCode == "SC1")
+sc1Ratio2 <- blankRatio()
+
+# palma
+sc2Range <- rangeRatio(json_dat, indCode == "SC2")
+sc2Ratio1 <- spreadRatio(json_dat, indCode == "SC2")
+sc2Ratio2 <- blankRatio()
+
+# no say in govt
+pv1Range <- rangeRatio(json_dat, indCode == "PV1")
+pv1Ratio1 <- spreadRatio(json_dat, indCode == "PV1")
+pv1Ratio2 <- blankRatio()
+
+# homicid rate
+pj1Range <- rangeRatio(json_dat, indCode == "PJ1")
+pj1Ratio1 <- spreadRatio(json_dat, indCode == "PJ1")
+pj1Ratio2 <- blankRatio()   
+
+
+# create json for doughnut
+#----------------------------------------------------------------------------------------------------------------
+doughnutNest <- list()
+myList <- list()
+
+
+doughnutNest <- list(
+	place = placeList[[1]],
+	placeCode = placeList[[2]],
+	ecological = list(
+		min = ecoMinmax[[3]],
+		max = ecoMinmax[[4]],
+		range = list(
+			cc1 = list(cc1Range[[3]], cc1Range[[4]]),
+			oa1 = list(oa1Range[[3]], oa1Range[[4]]),
+			cp1 = list(cp1Range[[3]], cp1Range[[4]]),
+			np1 = list(np1Range[[3]], np1Range[[4]]),
+			ap1 = list(ap1Range[[3]], ap1Range[[4]]),
+			lc1 = list(lc1Range[[3]], lc1Range[[4]])
+		),
+		series1 = list(
+			cc1 = pullVars(cc1Ratio1, 1),
+			oa1 = pullVars(oa1Ratio1, 1),
+			cp1 = pullVars(cp1Ratio1, 1),
+			np1 = pullVars(np1Ratio1, 1),
+			ap1 = pullVars(ap1Ratio1, 1),
+			lc1 = pullVars(lc1Ratio1, 1)
+		),
+		series2 = list(
+			cc = pullVars(cc1Ratio2, 1),
+			oa = pullVars(oa1Ratio2, 1),
+			cp = pullVars(cp1Ratio2, 1),
+			np = pullVars(np1Ratio2, 1),
+			ap = pullVars(ap1Ratio2, 1),
+			lc = pullVars(lc1Ratio2, 1)
+		)
+	),
+	social = list(
+		min = socMinmax[[3]],
+		max = socMinmax[[4]],
+		range = list(
+			co1 = list(co1Range[[3]], co1Range[[4]]),
+			co2 = list(co2Range[[3]], co2Range[[4]]),
+			en1 = list(en1Range[[3]], en1Range[[4]]),
+			en2 = list(en2Range[[3]], en2Range[[4]]),
+			wa1 = list(wa1Range[[3]], wa1Range[[4]]),
+			wa2 = list(wa2Range[[3]], wa2Range[[4]]),
+			nu1 = list(nu1Range[[3]], nu1Range[[4]]),
+			he1 = list(he1Range[[3]], he1Range[[4]]),
+			he2 = list(he2Range[[3]], he2Range[[4]]),
+			ed1 = list(ed1Range[[3]], ed1Range[[4]]),
+			iw1 = list(iw1Range[[3]], iw1Range[[4]]),
+			iw2 = list(iw2Range[[3]], iw2Range[[4]]),
+			pj1 = list(pj1Range[[3]], pj1Range[[4]]),
+			pv1 = list(pv1Range[[3]], pv1Range[[4]]),
+			pv2 = list(pv1Range[[3]], pv1Range[[4]]), # why is this in here twice?
+			sc1 = list(sc1Range[[3]], sc1Range[[4]]),
+			eq1 = list(eq1Range[[3]], eq1Range[[4]]),
+			eq2 = list(eq2Range[[3]], eq2Range[[4]]),
+			ho1 = list(ho1Range[[3]], ho1Range[[4]])
+		),
+		series1 = list(
+			co1 = pullVars(co1Ratio1, 1),
+			co2 = pullVars(co2Ratio1, 1),
+			en1 = pullVars(en1Ratio1, 1),
+			en2 = pullVars(en2Ratio1, 1),
+			wa1 = pullVars(wa1Ratio1, 1),
+			wa2 = pullVars(wa2Ratio1, 1),
+			nu1 = pullVars(nu1Ratio1, 1),
+			he1 = pullVars(he1Ratio1, 1),
+			he2 = pullVars(he2Ratio1, 1),
+			ed1 = pullVars(ed1Ratio1, 1),
+			iw1 = pullVars(iw1Ratio1, 1),
+			iw2 = pullVars(iw2Ratio1, 1),
+			pj1 = pullVars(pj1Ratio1, 1),
+			pv1 = pullVars(pv1Ratio1, 1),
+			pv2 = pullVars(pv1Ratio1, 1),# why is this in here twice?
+			sc1 = pullVars(sc1Ratio1, 1),
+			eq1 = pullVars(eq1Ratio1, 1),
+			eq2 = pullVars(eq2Ratio1, 1),
+			ho1 = pullVars(ho1Ratio1, 1)
+		),
+		series2 = list(
+			co = pullVars(co1Ratio2, 1),
+			en = pullVars(en1Ratio2, 1),
+			wa = pullVars(wa1Ratio2, 1),
+			nu = pullVars(nu1Ratio2, 1),
+			he = pullVars(he1Ratio2, 1),
+			ed = pullVars(ed1Ratio2, 1),
+			iw = pullVars(iw1Ratio2, 1),
+			pj = pullVars(pj1Ratio2, 1),
+			pv = pullVars(pv1Ratio2, 1),
+			sc = pullVars(sc1Ratio2, 1),
+			eq = pullVars(eq1Ratio2, 1),
+			ho = pullVars(ho1Ratio2, 1)
+		)
+	)
+)
+
+
+#-------------------------------------------------------------------------------------
+# write(toJSON(doughnutNest, pretty = TRUE, auto_unbox=TRUE, digits=2), 
+#       paste0(data_output_path,"aus_doughnut.json"))
+
+# clear environ
+rm(list = setdiff(ls(), c("full_dt", "full_non_interp_dt", "data_import_path", "data_output_path")))
+invisible(gc())
+
+```
+
+
+# Changes in Social Shortfall and Ecological Overshoot
+
+With the available time series, I plot below the changes from 2000 to 2024 for all indicators. For some indicators, I calculate the changes from their earliest observations available i.e. the mean of 2005-06 for youth NEET, the mean of 2015-16 for food insecurity the mean of 2020-21 for access to public transportation. 
+
+The light green bars show the *reduction* in shortfall or overshoot in the last 20 years. The dark red bars show the *increase* in shortfall or overshoot in the last 20 years.
+
+Feel free to check out the code for the social foundations here *(click "show" to expand)*.
+
+```{r  social baguette, message=FALSE}
+# prepare social variables
+socData <- full_dt[domain == "social"]
+
+## min years for all 
+# socData[, .(min_yr = min(Date), max_yr = max(Date)), by =.(indicator)]
+
+# get 2000-01 values for social indicators (except indicators that start later)
+socStart <- socData[Date %in% c(2000,2001) &
+                      !indicator %in% c("food_insecurity", 
+                                        "secondary_educ_completion_rate", 
+                                        "youth_neet", 
+                                        "public_transport_access", 
+                                        "prop_in_need_on_waiting_list", 
+                                        "perc_more_ind_prison_compared_to_non_ind_prisons_per_100000",
+                                        "no_say_in_govt"),
+                    .(valueStart = mean(value, na.rm=TRUE),
+                      ratioStart = mean(ratio, na.rm=TRUE)),
+                    by = .(domain, dimension, indicator, indCode)]
+
+
+
+# get obs for 2005-06
+soc05 <- socData[Date %in% c(2005, 2006) &
+                   indicator %in% c("youth_neet", "lack_social_support"),
+                                                        .(valueStart = mean(value, na.rm=TRUE),
+                                                          ratioStart = mean(ratio, na.rm=TRUE)),
+                                                        by = .(domain, dimension, indicator, indCode)]
+
+
+# get obns for 2015-16
+soc15 <- socData[Date %in% c(2015,2016) &
+                      indicator %in% c("food_insecurity", 
+                                        "secondary_educ_completion_rate",
+                                        "prop_in_need_on_waiting_list", 
+                                        "perc_more_ind_prison_compared_to_non_ind_prisons_per_100000"),
+                    .(valueStart = mean(value, na.rm=TRUE),
+                      ratioStart = mean(ratio, na.rm=TRUE)),
+                    by = .(domain, dimension, indicator, indCode)]
+
+# get obns for 2020-21
+soc20 <- socData[Date %in% c(2020,2021) &
+                      indicator %in% c("public_transport_access",
+                                       "no_say_in_govt"),
+                    .(valueStart = mean(value, na.rm=TRUE),
+                      ratioStart = mean(ratio, na.rm=TRUE)),
+                    by = .(domain, dimension, indicator, indCode)]
+
+# combine 
+socStart1 <- rbind(socStart, soc05, soc15, soc20)  %>%
+  arrange(dimension, indCode)
+
+
+
+# get 2021-22 values for social indicators 
+socEnd <- socData[Date %in% c(2023,2024),
+                  .(valueEnd  = mean(value, na.rm=TRUE),
+                    ratioEnd  = mean(ratio, na.rm=TRUE)),
+                  by = .(domain, dimension, indicator, indCode)]
+
+# join start and end values/ratios
+soc <- merge(socStart1,
+             socEnd, 
+             by = c( "domain", "dimension", "indicator", "indCode"),
+             all = TRUE)
+
+soc <- merge(soc, socData[, .(min_yr = min(Date), max_yr = max(Date)), by =.(indicator)],
+             all.x = TRUE, by = "indicator")
+
+# calculate change between start and end periods for each indicator
+soc1 <- soc %>%
+    arrange(dimension, indCode) %>%
+   rowwise() %>% 
+    mutate(diff = ratioEnd - ratioStart,
+           betterWorse = ifelse(diff > 0, "worsening", "improving")) %>%
+    ungroup()
+
+rm(socData, soc)
+
+soc2 <- soc1 %>% 
+  rowwise() %>%
+  mutate(weight = ifelse(dimension == "education" || 
+                           #dimension == "energy"|| 
+                           dimension == "food" || 
+                           dimension == "housing" || 
+                           dimension == "peace and justice" ||
+                           dimension == "political voice", 100, 50),
+         diffBetter = ifelse(diff <= 0, abs(diff), NA),
+         diffWorse = ifelse(diff <= 0, NA, diff),
+         mainBetter = ifelse(diff <= 0, ratioStart - diffBetter, NA),
+         mainWorse = ifelse(diff > 0, ratioEnd - diffWorse, NA)) %>%
+  ungroup()
+
+
+# gather data and calculate x-axis bar positions
+socChart <-  setDT(soc2)[, -c("valueStart", 
+                              "ratioStart", 
+                              "valueEnd", 
+                              "ratioEnd", 
+                              "diff")] %>%
+  pivot_longer(c(9:12),
+               names_to = "changeBar", 
+               values_to = "value") %>%
+  group_by(changeBar) %>% 
+  mutate(pos = 0.5 *(cumsum(weight) + cumsum(c(0,weight[-length(weight)])))) %>% 
+  ungroup()
+
+colours <- c(
+  "mainBetter" = "#2ECC40",  # Bright Green
+  "diffBetter" = "#A2DCA8",  # Light Green
+  "mainWorse" = "#2ECC40",   # Bright Green (same as mainBetter)
+  "diffWorse" = "#920130"    # Darker Green
+)
+
+#define dimension labels
+dimLabs <- socChart %>%
+  count(dimension) %>%
+  select(-n) %>%
+  mutate(pos = seq(50, 1150, 100),
+    dimLab.ch = c("conectivity", "education", "energy", "equality", "food", "health", "housing", "income\n& work", "peace &\njustice", "political\nvoice", "social\ncohesion", "water &\nsanitation"),
+    dimLabs = factor(dimLab.ch, 
+                     levels=c("conectivity", "education", "energy", "equality", "food", "health", "housing", "income\n& work", "peace &\njustice", "political\nvoice",     "social\ncohesion", "water &\nsanitation"))) %>%
+  select(-dimension, -dimLab.ch)
+
+#define axis labels
+axisLabs <- tibble(labs.ch = c("lack of\npublic\ntransport", "lack of\ninternet", "incomplete\nsecondary\nschool",  "lack of\nelectricity",
+                               "lack of\nclean fuel",
+                               "gender\ninequality", "racial\ninequality",  "food\ninsecurity", "under-5\nmortality", 
+                               "lack of\nhealth\nservices", "In greatest need \non social housing \nwaitlist", "societal\npoverty", 
+                               "youth\nNEET", "homicide\nrate", "No say in \ngovernment", "lack of\nsocial\nsupport", "income\ninequality",
+                               "unsafe\ndrinking\nwater", "unsafe\nsanitation"),
+    labs = factor(labs.ch, levels = c("lack of\npublic\ntransport", "lack of\ninternet", "incomplete\nsecondary\nschool",  "lack of\nelectricity", 
+                                      "lack of\nclean fuel",
+                               "gender\ninequality", "racial\ninequality",  "food\ninsecurity", "under-5\nmortality", 
+                               "lack of\nhealth\nservices", "In greatest need \non social housing \nwaitlist", "societal\npoverty", 
+                               "youth\nNEET", "homicide\nrate", "No say in \ngovernment", "lack of\nsocial\nsupport", "income\ninequality",
+                               "unsafe\ndrinking\nwater", "unsafe\nsanitation"))) %>% 
+  select(-labs.ch)
+
+#get top column positions
+colLabs <- soc2 %>%
+  select(dimension, indicator, indCode, ratioStart, ratioEnd) %>%
+  rowwise() %>%
+  mutate(topVal = max(ratioStart, ratioEnd)) %>%
+  ungroup() %>%
+  cbind(axisLabs) %>%
+  select(-ratioStart, -ratioEnd) %>% tibble()
+
+#get xpos values for labels
+pos <- socChart %>%
+  select(dimension, indicator, indCode, pos) %>%
+  group_by(dimension, indicator, indCode) %>%
+  summarise(pos = mean(pos)) %>%
+  ungroup() %>%
+  arrange(dimension, indCode)
+
+colLabs1 <- left_join(colLabs, pos, by=c("dimension", "indicator", "indCode")) %>%
+  mutate(constVal = 0.84,
+         myCol = "black")
+
+
+
+
+socBars <- socChart %>% 
+  ggplot(aes(x = pos, y = value, width = weight - 2, group = changeBar))+
+  geom_bar(aes(fill = changeBar), stat = "identity")+
+  geom_vline(xintercept = seq(100,1100,100), colour = "#ffffff", lwd=1.5) +
+  geom_vline(xintercept = seq(100,1100,100), colour = "#f0f0f0", lwd=0.5) +
+  geom_hline(yintercept = 0, colour="black", lwd=1) +
+  annotate("text", x = colLabs1$pos, y = colLabs1$constVal, label = colLabs1$labs,
+    colour = colLabs1$myCol, vjust=1, size=2)+
+  scale_fill_manual(name = "Change in\nsocial shortfall,\n2024 versus 2000", 
+                    limits=c("mainBetter", "mainWorse", "diffBetter", "diffWorse"),
+                    labels=c("Reference1", "Reference2", "Improving from 2000", "Worsening from 2000"),
+                    values=colours)+
+  coord_cartesian(ylim=c(1,0)) +
+  scale_y_reverse(labels = scales::percent_format(big.mark=","), expand = c(0,0.01))+
+  scale_x_continuous(labels = dimLabs$dimLabs, breaks=dimLabs$pos, position = "top", expand=c(0,0.05)) +
+  labs(x=element_blank(), y="Social shortfall", 
+       title = "Change in social shortfall for  Australia",
+       subtitle = "2024 versus 2000*") +
+  theme_classic()+
+  theme(
+    plot.margin = margin(0.5, 0.1, 0.1, 0.1, "cm"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    legend.position = "none",
+    axis.title = element_text(size=10),
+    axis.text = element_text(size=8),
+    axis.line = element_blank(),
+    axis.ticks.x = element_blank())
+
+# socBars
+
+rm(socChart, soc20, dimLabs, axisLabs, socStart1, socEnd, colLabs1, socStart, soc05, soc15, soc1, colLabs, pos)
+invisible(gc())
+
+
+```
+
+Feel free to check out the code for the ecological overshoot here *(click "show" to expand)*.
+
+```{r begin prep of ecological variables, message=FALSE}
+
+# get global ecological data
+ecoData <- full_dt[domain == "ecological" & !indicator %in% c("num_species_threatened", "ozone_depleting_subst_consump")]
+
+## min years for all 
+# ecoData[, .(min_yr = min(Date), max_yr = max(Date)), by =.(indicator)]
+
+# get 2-year average 2000-01 values for ecological indicators, except ozone
+ecoStart <- ecoData[Date %in% c(2000,2001) &
+                      !indicator %in% c("omega_a"),
+                    .(valueStart = mean(value, na.rm=TRUE),
+                      ratioStart = mean(ratio, na.rm=TRUE)),
+                    by = .(domain, dimension, indicator, indCode)]
+
+# get 2-year average 2015-16 values for omega_a
+ecoStartomega <- ecoData[Date %in% c(2015,2016) &
+                      indicator %in% c("omega_a"),
+                    .(valueStart = mean(value, na.rm=TRUE),
+                      ratioStart = mean(ratio, na.rm=TRUE)),
+                    by = .(domain, dimension, indicator, indCode)]
+
+## bind ozone to start 
+ecoStart1 <- rbind(ecoStart, ecoStartomega) %>%
+  arrange(dimension, indCode)
+
+rm(ecoStart, ecoStartomega)
+
+# get 2-year avg 2020-21 values for ecological indicators, except ozone
+ecoEnd <- ecoData[Date %in% c(2024,2025),
+                  .(valueEnd = mean(value, na.rm=TRUE),
+                    ratioEnd = mean(ratio, na.rm=TRUE)),
+                  by = .(domain, dimension, indicator, indCode)]
+
+## bind ozone to end
+ecoEnd1 <- ecoEnd %>%
+  arrange(dimension, indCode)
+
+rm(ecoEnd)
+
+#join start and end average values
+eco  <- merge(ecoStart1, 
+              ecoEnd1,
+              by = c("domain", "dimension", "indicator", "indCode"),
+              all = TRUE)
+
+rm(ecoStart1, ecoEnd1)
+
+eco1 <- eco %>%
+  rowwise() %>%
+  mutate(diff = ratioEnd - ratioStart,
+    betterWorse = ifelse(diff > 0, "worsening", "improving")) %>%
+  ungroup()
+
+rm(ecoData, eco)
+
+eco2 <- eco1 %>% 
+  rowwise() %>%
+  mutate(weight = 100,
+    diffBetter = ifelse(diff <= 0, abs(diff), NA),
+    diffWorse = ifelse(diff <= 0, NA, diff),
+    mainBetter = ifelse(diff <= 0, ratioStart - diffBetter, NA),
+    mainWorse = ifelse(diff > 0, ratioEnd - diffWorse, NA)) %>%
+  ungroup() %>%
+  arrange(dimension, indCode)
+
+rm(eco1)
+
+ecoChart <-  setDT(eco2)[, -c("valueStart", 
+                              "ratioStart", 
+                              "valueEnd", 
+                              "ratioEnd", 
+                              "diff")] %>%
+  pivot_longer(c(7:10),
+               names_to = "changeBar", 
+               values_to = "value") %>%
+  group_by(changeBar) %>% 
+  mutate(pos = 0.5 *(cumsum(weight) + cumsum(c(0,weight[-length(weight)])))) %>% 
+  ungroup()
+
+colours <- c(
+  "mainBetter" = "#2ECC40",  # Bright Green
+  "diffBetter" = "#A2DCA8",  # Light Green
+  "mainWorse" = "#2ECC40",   # Bright Green (same as mainBetter)
+  "diffWorse" = "#920130"    # Darker Green
+)
+
+#define dimension labels
+dimLabs <- ecoChart %>%
+  count(dimension) %>%
+  select(-n) %>%
+  mutate(pos = seq(50, 600, 100),
+    dimLab.ch = c("air\npollution", "land\nconversion", "material\npfootprint", "nutrient\npollution", "climate\nchange", "ocean\nacidification"),
+    dimLabs = factor(dimLab.ch, levels=c("air\npollution", "land\nconversion", "material\npfootprint", "nutrient\npollution", "climate\nchange", "ocean\nacidification"))) %>%
+  select(-dimension, -dimLab.ch)
+
+#define axis labels
+axisLabs <- tibble(labs.ch = c("mean annual exposure of \ncubic micrograms of PM2.5", 
+                               "% of land total \nland forested", 
+                               "material throughput", 
+                               "fertiliser consumption \nkg per capita", 
+                               "co2 emissions \nper capita", 
+                               "Aragonite concentration"),
+                   labs = factor(labs.ch, levels = c("mean annual exposure of \ncubic micrograms of PM2.5", 
+                               "% of land total \nland forested", 
+                               "material throughput", 
+                               "fertiliser consumption \nkg per capita", 
+                               "co2 emissions \nper capita", 
+                               "Aragonite concentration"))) %>% 
+  select(-labs.ch)
+
+#get top column positions
+colLabs <- eco2 %>%
+  select(dimension, indicator, indCode, ratioStart, ratioEnd) %>%
+  rowwise() %>%
+  mutate(topVal = max(ratioStart, ratioEnd)) %>%
+  ungroup() %>%
+  cbind(axisLabs) %>%
+  select(-ratioStart, -ratioEnd) %>% tibble()
+
+#get xpos values for labels
+pos <- ecoChart %>%
+  select(dimension, indicator, indCode, pos) %>%
+  group_by(dimension, indicator, indCode) %>%
+  summarise(pos = mean(pos)) %>%
+  ungroup() %>%
+  arrange(dimension, indCode)
+
+colLabs1 <- left_join(colLabs, pos, by=c("dimension", "indicator", "indCode")) %>%
+  mutate(constVal = 13.5) 
+
+rm(colLabs, pos)
+
+ecoBars <- ecoChart %>% 
+  ggplot(aes(x = pos, y = value, width = weight - 2, group = changeBar))+
+  geom_bar(aes(fill = changeBar), stat = "identity")+
+  geom_vline(xintercept = seq(100,600,100), colour = "#ffffff", lwd=1.5) +
+  geom_vline(xintercept = seq(100,600,100), colour = "#f0f0f0", lwd=0.5) +
+  geom_hline(yintercept = 1, colour="black", lwd=1)+
+  annotate("text", x = colLabs1$pos, y = colLabs1$constVal, label = colLabs1$labs, vjust=1, size = 2) +
+  scale_fill_manual(name = "Change in\necological overshoot,\n2024 versus 2000",
+    limits=c("mainBetter", "mainWorse", "diffBetter", "diffWorse"),
+    labels=c("Reference1", "Reference2", "Improving from 2000", "Worsening from 2000"), values=colours) +
+  scale_y_continuous(labels = scales::percent_format(big.mark=","), expand=c(0,0.05)) +
+  scale_x_continuous(labels = dimLabs$dimLabs, breaks=dimLabs$pos, expand=c(0,0.05)) + 
+  labs(x=element_blank(), y="Ecological overshoot (%)", 
+       title = "Change in ecological overshoot for  Australia",
+       subtitle = "2024 versus 2000*") +
+  theme_classic() +
+  theme(
+    plot.margin = margin(0.1, 0.1, 0.5, 0.1, "cm"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    legend.position = "none",
+    axis.title = element_text(size=10),
+    axis.text = element_text(size=8),
+    axis.line = element_blank(),
+    axis.ticks.x = element_blank())
+
+# ecoBars
+
+rm(ecoChart, colours, axisLabs, colLabs1, dimLabs)
+invisible(gc())
+
+```
+
+Below is the code where I merge both social and ecological charts into one plot here *(click "show" to expand)*.
+
+```{r joined baguette plots, warning=FALSE, fig.width = 10, fig.height = 10}
+SocEcoBars <- ggarrange(ecoBars, socBars, ncol=1)
+
+SocEcoBars
+
+ggsave(paste0(data_output_path,"baguette_plot.png"), 
+       plot = SocEcoBars,  width = 10, height = 10, units = "in", 
+       device = "png", dpi = 300)
+
+# rm(SocEcoBars, ecoBars, socBars)
+invisible(gc())
+
+```
+
+
+All 6 ecological indicators are overshooting the ecological ceiling. Air pollution, land conversion, and ocean acidification are all relatively close to the ecological ceiling *(128%, 129% and 134% respectively)*. Especially when compared to material footprint, nutrient pollution and co2 emissions per capita overshoots *(527%, 1193% and 1523% respectively)*.
+
+Since the start of each of their series, land conversion and Co2 emissions per capita are the only indicators making progress. Even then, only co2 emissions per capita has made any significant changes, and still, it remains over 1500% above the ecological ceiling. Technically, the average of ocean acidification has improved; however, the series is extremely volatile whilst still exceeding the ecological ceiling.
+
+Of the 19 social indicators, 4 are meeting the social foundation. Namely, access to energy, access to clean fuel, access to safe water, and peace & justice. I should highlight that the peace and justice indicator is defined as a homicide rate in Australia being below 5 homicides per 100,000 people. In 2024, the rate for Australia was 0.890 per 100,000. So whilst it is well below the threshold, for Australia's population of roughly 28 million people, that is still approximately 250 people who die from homicides per year. This highlights the limitations of some measures adopted for each domain. I will expand on the limitations of the measures at the end of this document. 
+
+In terms of changes to social indicators, there have been some improvements. Most notably, access to the internet has moved towards the social foundation the more than any other indicator. There have also been some improvements in completion of secondary education, gender equality and peoples perception of their say in government. However, perhaps most notably, there has been some worsening in key indicators such as racial equality, food security, access to housing, social support, and income inequality. 
+
+Given the settler-colonial origins of Australia, the worsening of racial inequality is not a surprising result, but rather is readily explained as a continuation of the dispossession of land from Indigenous Australians. Similarly, given the increased cost of housing, the increase in social isolation that began before and has continued since the COVID-19 lockdowns, worsening income inequality since neoliberalism, these negative trends in key social indicators are not a surprising finding. 
+
+What is surprising is the improvement in perceptions of political voice, especially given the rise of far right populism in recent polls. However, this only relates to data from 2018 to 2024 of which only two real data points were collected *(the others were interpolated)*. Therefore, it is unwise to read too much into this change. 
+
+# Trends Analysis
+
+Given the time series structure of the available data, the trends of the data can be estimated by fitting the following model to each indicator:
+
+$$ y_t = \beta_0 + \beta_1 t+\varepsilon_t$$
+
+$\beta_1$ is quite simply interpreted as the change in percentage points for the shortfall/overshoot ratio per year. A positive $\beta_1$ indicates a trend away from the social foundation or ecological ceiling, whilst a negative slope indicates a trend towards the social foundation or ecological ceiling. I use the original data sets that have not been interpolated or extrapolated to estimate the model. Because some indicators have so few observations, the estimates for these trends are unreliable. 
+
+Below are the key trend plots with the model fitted to each indicator series as a line with the original data points as dots. 
+
+Feel free to check out the code here *(click "show" to expand)*.
+
+```{r linear trends, warning=FALSE, fig.width = 10, fig.height = 8, message=FALSE}
+
+full_non_interp_dt <- merge(full_non_interp_dt, 
+      full_dt[,.(domain, dimension, indicator, Date, ratio)],
+      by = c("domain", "dimension", "indicator", "Date"), 
+      all.x = TRUE)
+
+# Drop NAs and transform date so 0 is 2000 (for a meaningful intercept coefficient) 
+lmData1 <- full_non_interp_dt[!indicator %in% c("num_species_threatened", "ozone_depleting_subst_consump")] %>% 
+  drop_na() %>% rowwise() %>% 
+  mutate(t = Date - 2000) %>% ungroup()
+
+# simple model func
+mod_fit <- function(data){lm(ratio ~ t, data = data)}
+
+mods <- lmData1 %>%
+  group_nest(domain, dimension, indicator) %>%
+  mutate(model = map(data, mod_fit),
+         augment = map(model, broom::augment)) %>%
+  rowwise() %>%
+  mutate(glance = list(broom::glance(coeftest(model, df=Inf, vcov = NeweyWest(model, lag = 4, prewhite=FALSE), save=TRUE))),
+         tidy = list(broom::tidy(coeftest(model, df=Inf, vcov = NeweyWest(model, lag = 4, prewhite=FALSE))))) %>%
+  ungroup()
+
+# get fitted values to visualise
+mods_aug <- mods %>%
+  unnest(augment) %>%
+  select(domain, dimension, indicator, ratio, t, .fitted)
+
+
+#####
+# social trends
+#####
+
+soc_trends <- as.data.table(mods_aug)[domain == "social"] %>% 
+  rowwise() %>% 
+  mutate(Date = t + 2000) %>% ungroup() %>% 
+  arrange(dimension, indicator)
+
+indicatorLabs <- soc_trends %>%
+  count(dimension, indicator) %>%
+  select(-n) %>%
+  mutate(indLabel.ch = c("lack of internet", "lack of public transport",
+                         "incomplete secondary school", 
+                         "lack of electricity",  "lack of clean fuels indoors",
+                         "gender inequality", "racial equality",
+                         "food insecurity", 
+                         "under-5 mortality", "lack of health services", 
+                         "Lack of Critical Social Housing", 
+                         "societal poverty", "youth NEET", 
+                         "homicide rate", 
+                         "no say in government",
+                         "lack of social support",
+                         "income inequality",
+                         "unsafe drinking water", 
+                         "unsafe sanitation"
+                         ))
+
+#get regression data for annotation
+eqnData <- mods %>%
+  filter(domain == "social") %>%
+  unnest(glance, tidy) %>%
+  select(dimension, indicator, adjR2 = adj.r.squared, nobs, term, estimate ) %>%
+  pivot_wider(names_from = "term", values_from = "estimate") %>%
+  rename(intercept = `(Intercept)`, slope = t)%>% 
+  mutate(slope = slope, intercept = intercept)
+
+#join equation data to labels
+indicatorLabs1 <- left_join(indicatorLabs, eqnData, by=c("dimension", "indicator")) %>%
+  rowwise() %>%
+  mutate(formula = sprintf("italic(y) == %.0f %+.3f * italic(t) * ',' ~~ italic(r)^2 ~ '=' ~ %.2f",
+          # formula = sprintf("italic(r)^2 ~ '=' ~ %.2f",
+                           round(intercept, 4), round(slope, 4), round(adjR2, 3))) %>%
+  ungroup()
+
+pos <- tibble(
+  x1 = c(2000, 2012, 2000, 2012, 2000, 2012, 2000, 2012, 2000, 2012, 2000, 2012, 2000, 2012, 2000, 2012, 2000, 2012, 2000), 
+  x2 = c(2000, 2012, 2000, 2012, 2000, 2012, 2000, 2012, 2000, 2012, 2000, 2012, 2000, 2012, 2000, 2012, 2000, 2012, 2000), 
+  y1 = c(1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1.05),
+  y2 = c(1.13, 1.13, 1.13, 1.13, 1.13, 1.13, 1.13, 1.13, 1.13, 1.13, 1.13, 1.13, 1.13, 1.13, 1.13, 1.13, 1.13, 1.13, 1.13))
+
+indicatorLabs2 <- cbind(indicatorLabs1, pos)
+
+soc_trends_plot <- soc_trends %>% 
+  ggplot()+
+  geom_hline(yintercept = 0, col = "black", lwd=1) +
+  geom_line(aes(x = Date, y = .fitted, col = indicator), lwd = 0.5) +
+  geom_point(aes(x = Date, y = ratio, col = indicator), size = 0.6)+
+  scale_y_reverse(labels=scales::percent, breaks=seq(0,1,0.25)) + 
+  facet_wrap(~dimension, ncol = 4, scales = "free") +
+  geom_text(data = indicatorLabs2, aes(x = x1, y = y1, label = indLabel.ch, col=indicator), hjust=0, size=2) +
+  geom_text(data = indicatorLabs2, aes(x = x2, y = y2, label = formula, col=indicator), parse=TRUE, hjust=0, size=2) +
+  labs(x = "Year", 
+       y = "Social shortfall (0% = social foundation)") +
+  theme_classic()+
+  theme(legend.position="none"#, panel.grid=element_blank()
+    )
+
+soc_trends_plot
+
+ggsave(paste0(data_output_path,"soc_trends_plot.png"), 
+       plot = soc_trends_plot, # width = 183, height = 100, units = "mm",
+       device = "png", dpi = 300)
+
+
+#####
+# ecological trends
+#####
+
+eco_trends <- as.data.table(mods_aug)[domain == "ecological" & 
+                                       !indicator %in% c("num_species_threatened", "ozone_depleting_subst_consump")] %>% 
+  rowwise() %>% 
+  mutate(Date = t + 2000) %>% ungroup() %>% 
+  arrange(dimension, indicator)
+
+#set indicator labels for annotation
+indicatorLabs <- eco_trends %>%
+  count(dimension, indicator) %>%
+  select(-n) %>%
+  mutate(indLabel.ch = c("Mean exposure to PM2.5", "% land Forested", "Material Footprint", "Fertiliser Consumption per capita",
+                         "co2 emissions per capita",  "aragonite concenrtation"))
+
+#get regression data for annotation
+eqnData <- mods %>%
+  filter(domain == "ecological") %>%
+  unnest(glance, tidy) %>%
+  select(dimension, indicator, adjR2 = adj.r.squared, nobs, term, estimate) %>%
+  spread(term, estimate) %>%
+  rename(intercept = `(Intercept)`, slope = t) %>% 
+  mutate(slope = slope, intercept = intercept )
+
+
+
+
+#join equation data and indicator labels
+indicatorLabs1 <- left_join(indicatorLabs, eqnData, by=c("dimension", "indicator")) %>%
+  rowwise() %>%
+  mutate(formula = sprintf("italic(y) == %.3f %+.3f * italic(t) * ',' ~~ italic(r)^2 ~ '=' ~ %.2f", 
+      round(intercept, 4), round(slope, 4), round(adjR2, 3))) %>%
+  ungroup()
+
+#set label positions for indicators (x1, y1) and equations (x2, y2)
+pos <- tibble(
+  x1 = c(2000, 2000, 2000, 2000, 2000, 2011), 
+  x2 = c(2000, 2000, 2000, 2000, 2000, 2011), 
+  y1 = c(1.8, 1.45, 6.2, 4, 15, 2), 
+  y2 = c(1.7, 1.4, 6, 3, 14, 1.9))
+
+#join coordinates to labels 
+indicatorLabs2 <- cbind(indicatorLabs1, pos)
+
+
+eco_trends_plot <- eco_trends  %>%
+  ggplot()+
+  geom_hline(yintercept = 1, col = "black", lwd=1) +
+  geom_line(aes(x=Date, y=.fitted, col=indicator), lwd=0.5) + 
+  geom_point(aes(x=Date, y=ratio, col=indicator), size=0.6) +
+  scale_y_continuous(labels = scales::percent_format(big.mark=",")) +
+  facet_wrap(~dimension, ncol=3, scales = "free") +
+  geom_text(data = indicatorLabs2, aes(x = x1, y = y1, label = indLabel.ch, col=indicator), hjust=0, size=3) +
+  geom_text(data = indicatorLabs2, aes(x = x2, y = y2, label = formula, col=indicator), parse=TRUE, hjust=0, size=3) +
+  labs(x = "Year", y = "Ecological overshoot (100% = planetary boundary)") +
+  theme_classic()+
+  theme(legend.position="none",
+    panel.grid=element_blank())
+
+eco_trends_plot
+
+ggsave(paste0(data_output_path,"eco_trends_plot.png"), 
+       plot = eco_trends_plot, # width = 183, height = 100, units = "mm",
+       device = "png", dpi = 300)
+
+rm(eco_trends, soc_trends, eqnData, indicatorLabs, indicatorLabs1, indicatorLabs2, pos)
+invisible(gc())
+```
+
+These plots give us a finer grain to the comparisons made above in the changes plot. With the plots finished, I collect the regression results into a data set. Below, I print a subset of the columns for this data set. Note that those with an insufficient number of observations have been excluded from the table below.
+
+Feel free to check out the code here *(click "show" to expand)*.
+
+```{r get full regression results, warning=FALSE, message=FALSE}
+mods_reg <- mods %>%
+  unnest(glance, tidy) %>%
+  select(domain, dimension, indicator, adjr2 = adj.r.squared, lmPval = p.value) %>%
+  group_by(domain, dimension, indicator) %>%
+  summarise(adjr2 = mean(adjr2, na.rm=TRUE),
+            lmPval = mean(lmPval, na.rm=TRUE))
+
+#get coefficients
+mods_coef1 <- mods %>%
+  unnest(glance, tidy) %>%
+  select(domain, dimension, indicator, term, estimate) %>%
+  pivot_wider(names_from = "term", 
+              values_from = "estimate") %>%
+  rename(intercept = `(Intercept)`, slope = t)
+
+#get std errors
+mods_coef2 <- mods %>%
+  unnest(glance, tidy) %>%
+  select(domain, dimension, indicator, term, stdError = std.error) %>%
+  pivot_wider(names_from = "term",
+              values_from = "stdError") %>%
+  rename(stdErrorIntercept = `(Intercept)`, stdErrorSlope = t)
+
+#get pVals
+mods_coef3 <- mods %>%
+  unnest(glance, tidy) %>%
+  select(domain, dimension, indicator, term, coefPval = p.value1) %>%
+  pivot_wider(names_from = "term", 
+              values_from = "coefPval") %>%
+  rename(pValIntercept = `(Intercept)`, pValSlope = t)
+
+#join
+keys <- c("domain", "dimension", "indicator")
+
+myReg <- merge(mods_coef1,
+               mods_coef2,
+               by=keys,
+               all = TRUE)
+myReg1 <- merge(myReg,
+                mods_coef3,
+                by=keys,
+                all = TRUE)
+
+myReg2 <- merge(myReg1,
+                mods_reg, 
+                by = keys,
+                all = TRUE) %>%
+  mutate(dimension = factor(dimension, 
+                            levels = c("climate change", "ocean acidification", "chemical pollution",
+                                       "nutrient pollution", "freshwater disruption", "land conversion", 
+                                       "biodiversity breakdown", "air pollution", "ozone depletion", "food",
+                                       "health", "education", "income and work", "water", "energy", "connectivity",
+                                       "housing", "equality", "social cohesion", "political voice", "peace and justice"))) %>%
+  arrange(domain, dimension) %>% as.data.table()
+
+# scale the slope up to make it a bit more interpretable
+knitr::kable(myReg2[!is.na(adjr2),.(indicator, 
+                                    slope = round(slope,4), 
+                                    stdErrorSlope = round(stdErrorSlope,4), 
+                                    pValSlope = round(pValSlope,3), 
+                                    adjr2 = round(adjr2,2))])
+# save data
+# fwrite(myReg2,
+#        paste0(data_output_path, ""))
+# 
+
+rm(mods_reg, mods_coef1, mods_coef2, mods_coef3, myReg, myReg1, mods, mod_fit, lmData1)
+invisible(gc())
+
+```
+
+# Pathways to 2030 and 2050
+
+With the linear trends from above, we can calculate the linear rates of change needed to eliminate the social shortfall by 2030 and ecological overshoot by 2050 *(from 2024 levels)* and compare them against the estimated trends.
+
+The table below shows that 3/6 ecological indicators are worsening, whilst 13/19 social indicators are improving at varying rates. The 6 that are worsening are also trending away from the social foundation and or are extremely far away from the social foundation *(especially racial equality)*. 
+
+Similarly, the ecological indicator that is seeing the most improvement is co2 emissions per captia. However, as previously mentioned it still remains over 1500% above the ecological foundation as of 2024.
+
+```{r start and end linear change}
+
+ecoSoc <- rbind(soc2[, -c("min_yr", "max_yr")], eco2)
+rm(eco2, soc2)
+
+# get 2024 overshoot/shortfall values and calculate linear rates of change needed to live within the doughnut
+# by 2030 for the social foundation and 2050 for the ecological ceiling.
+ecoSoc1 <- ecoSoc %>%
+  add_column(endYear = 0) %>% 
+  rowwise() %>%
+  mutate(t = ifelse(domain == "ecological", 2050-2024, 2030-2024),
+         slopeD = (endYear - ratioEnd)/t) %>%
+  select(-endYear) %>% as.data.table()
+
+
+# add estimated trends based on observed ratios to ecoSoc to have table data on file
+ecoSoc2 <- merge(ecoSoc1,
+                 myReg2,
+                 by = c("domain", #"dimension", 
+                        "indicator"),
+                 all.x = TRUE) %>% arrange(domain, #dimension, 
+                                           indicator) %>% 
+  relocate(t, slopeD, .after=adjr2)
+
+# calculate/round scale of ambition needed
+ecoSoc3 <- ecoSoc2 %>%
+  mutate(valueStart = round(valueStart, 3),
+         valueEnd = round(valueEnd, 3),
+         ratioStart = round(ratioStart, 3),
+         ratioEnd = round(ratioEnd, 3),
+         diff = round(diff, 3),
+         slopeD = round(slopeD, 3),
+         slope = round(slope, 3),
+         stdErrorSlope = round(stdErrorSlope, 5),
+         pValSlope = round(pValSlope, 5),
+         adjr2 = round(adjr2, 4))
+
+# how many are improving?
+knitr::kable(setDT(ecoSoc3)[,.N, by = .(domain, betterWorse)])
+
+```
+
+Furthermore, the table below shows each indicator, the yearly percentage change required to eliminate the shortfall or overshoot by 2030 or 2050, the estimated slope for each indicator, if the indicator is improving or worsening as well as a column for if the indicator is on track to eliminate the shortfall or overshoot.
+
+```{r summary table for slopes n wat not}
+knitr::kable(ecoSoc3[,.(domain, 
+                        indicator = c("Mean Annual PM2.5 Pollution",
+                                      "Co2 Emissions per Capita",
+                                      "Fertiliser Consumption in kg per Capita",
+                                      "Material Throughput",
+                                      "Aragonite concentration",
+                                      "Land Area Forested (%)",
+                                      "Food Insecurity (%)",
+                                      "Gender Inequality",
+                                      "Homicide Rate per 100,000",
+                                      "Lack of Social Support (%)",
+                                      "No Say in Government (%)",
+                                      "Palma Ratio",
+                                      "Racial Inequality",
+                                      "Access to Electricity (%)",
+                                      "Access to Clean Fuel (%)",
+                                      "Access to Internet (%)",
+                                      "Social Housing waiting list in greatest need (%)",
+                                      #"Proportion of population living below 50% of the median income (%)",
+                                      "Societal Poverty (%)",
+                                      "Access to Public Transportation (%)",
+                                      "Access to safer water (%)",
+                                      "Access to safe sanitation (%)",
+                                      "Secondary education completion rate (%)",
+                                      "Under 5 morality rate per 1,000 live births",
+                                      "Universal Healthcare Index",
+                                      "Youth NEET (%)"),
+                        `Required Trend` = slopeD, 
+                        `Actual Trend` = slope, 
+                        `Status` = betterWorse,
+                        `On track` = fifelse(slopeD ==0, "Target meet",
+                                           fifelse(slope < slopeD, "On Track", "Not on Track")))])
+
+
+# write data
+# fwrite(ecoSoc3,
+#        paste0(data_output_path, "9_20250516_doughnut-GlobalTablesData_recreation.csv"))
+
+# remove objects
+rm(ecoSoc, ecoSoc1, ecoSoc2)
+invisible(gc())
+
+```
+
+Of those indicators that are not already at their foundation/ceiling, only 2 are on track to eliminate their shortfall. They are having a say in govternment which only has two years of data and therefore cannot really provide any insight in terms of its true trend, or the proportion of the population with access to the internet. All other indicators are not on track.
+
+From the table, we can see that worsening indicators such as fertiliser consumption and material throughput are overshooting by 6.3 percentage points and 2.4 percentage points in the wrong direction, respectively. These two indicators need to be decreasing at 46 percentage points and 20 percentage points per year, respectively, to reach the ecological ceiling. Furthermore, even the indicator that is improving the fastest *(co2 emissions per capita)* is improving at less than half the rate necessary to meet the ecological ceiling by 2050 *(decreasing at 22 percentage points per year when it needs to be decreasing by 59 percentage points per year)*. Despite showing improvement in the changes between 2015 and 2024, the trend for ocean acidification is increasing, yet is statistically insignificant *(likely due to the volatility in the series)*. Overall, given that no ecological indicators are below their ceiling and none are on track to be within the ecological ceiling by 2050, this paints a dire picture for the Australian ecology.
+
+In terms of the social indicators, besides those indicators that are already at the social foundation, only gender equality, having a say in government, access to the internet, access to clean fuel for cooking, cleaning and lighting as well as access to public transport are trending in the right direction. However, as mentioned, most are not trending at a sufficient rate to reach their social foundation by 2030. This includes gender equality, youth NEET, universal health coverage, secondary education, and access to public transport.  
+
+Of those social indicators that are worsening, the largest gaps are for income inequality, people in greatest need on social housing waiting lists, and the gap in imprisonment rates between Indigenous and non-Indigenous Australians. Food insecurity and a lack of social support also show significant differences between their trend and the required path towards meeting the social foundations. Overall, whilst there has been some improvement, the rate of change is fundamentally not fast enough to eliminate the social shortfall by 2030. Furthermore, there is still a significant lack of key social needs being met, with even relatively ubiquitous needs such as access to safe sanitation facilities currently not being available to 100% of Australians *(only at 95% in 2024)*. It again paints a bleak picture for one of the "richest" nations in the world.
+
+# General Summary Statistics
+
+Below, I provide some summary statistics and explorations of the various indicators.
+
+The tables below detail the distribution of the shortfalls or overshoots in 2024. This shows quite a range of shortfalls and overshoots with the average social shortfall being 16% whilst its median is 6.9%. Similarly, the average ecological overshoot is 638% whilst the median overshoot is 527%. 
+
+```{r distribution of ratios at the 2024, warning=FALSE}
+
+# distribution of shortfalls and overshoots
+knitr::kable(full_dt[Date == 2024,.(distribution_of_shortfalls = ratio[domain == "social"], distribution_of_overshoots = ratio[domain == "ecological"])] %>% summary())
+
+
+```
+
+The large range in distributions is displayed when we plot the distributions of the shortfalls and overshoots over time. We can see that there is a large spread across both social shortfalls and ecological overshoots. Both the social shortfalls and ecological overshoots are mainly driven by outlier indicators such as Co2 emissions or fertiliser consumption for ecological indicators, as well as racial and income inequality plus a lack of access to housing for the social indicators.
+
+```{r social shortfall boxplot vis, warning = FALSE}
+
+socFull <- full_dt[domain == "social" & Date < 2025] 
+
+p1 <- socFull %>% 
+  ggplot(aes(Date, ratio, color = indicator)) +
+  geom_hline(yintercept = 0, lwd=1, col="black") +
+  geom_boxplot(aes(group = Date), outlier.shape=NA) +
+  geom_jitter(width=0.2) +
+  scale_y_reverse(limits=c(1,0), labels = scales::percent) +
+  scale_x_continuous(expand = c(0,0.1)) +
+#  scale_y_continuous(labels = scales::percent) +
+#  coord_cartesian(ylim=c(1,0), xlim=c(2000,2022)) +
+  labs(x="Year", y="Range of shortfall across social\nindicators (0 = no shortfall)") +
+  theme_classic()+
+  theme(legend.position = "none")
+
+# p1
+
+# ggsave(paste0(data_output_path,"/plots/ExtDataFig3_shortfallRange-by-year_Boxplots_final_recreation.png"),
+#        plot = p1, width = 180, height = 80, units = "mm", device="png")
+
+## eco boxes
+
+ecoFull <- full_dt[domain == "ecological" & 
+                     Date < 2025 & 
+                     !indicator %in% c("num_species_threatened", "ozone_depleting_subst_consump")
+                   ] #%>%  mutate(ratio = ratio - 1)
+
+p2 <- ecoFull %>% 
+  ggplot(aes(Date, ratio, color = indicator)) +
+  geom_hline(yintercept = 0, lwd=1, col="black") +
+  geom_boxplot(aes(group = Date), outlier.shape=NA) +
+  geom_jitter(width=0.2) +
+  # coord_cartesian(ylim = c(-1,3), xlim = c(2000,2022)) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(expand = c(0,0.5)) +
+  labs(x = "Year", y = "Range of overshoot across ecological\nindicators (0 = no overshoot)") +
+  theme_classic()+
+  theme(legend.position = "none")
+
+# p2 
+
+# ggsave(paste0(data_output_path,"/plots/ExtDataFig4_overshootRange-by-year_Boxplots_fina_recreation.png"),
+#        plot = p2, width = 180, height = 80, units = "mm", device="png")
+
+invisible(gc())
+
+
+p3 <- ggarrange(p2, p1, ncol=1)
+
+p3
+
+# ggsave(paste0(data_output_path,"plots/ExtDataFig5_joined_boxplot.png"), plot = p3,  width = 183, height = 200, units = "mm", device = "png")
+
+rm(p1, p2, p3)
+invisible(gc())
+
+```
+
+
+```{r not super interesting remove later, include=FALSE, eval=FALSE}
+soc[ratioStart >= 0.5,.N] #17
+soc[ratioEnd >= 0.5,.N] #15
+
+soc[ratioStart >= 0.25,.N]  #17
+soc[ratioEnd >= 0.25,.N]  #16
+
+soc[diff <= -0.2,.N] # 11
+soc[diff <= -0.06,.N] # 8
+```
+
+
+The table below shows by what percentage the social and ecological indicators that are worsening are growing Interestingly, because it starts from a point relatively close to the social foundation, the indicator that is worsening the fastest is the lack of social support i.e. the proportion of people who say they have no one to help them in a time of need. This is approximately 200% worse than the start of the time series. 
+
+```{r number of indicators that improved}
+soc <- ecoSoc3[domain == "social"]
+
+eco <- ecoSoc3[domain == "ecological"]
+
+knitr::kable(rbind(eco[betterWorse == "worsening", .(indicator, pctWorse = (ratioEnd-ratioStart)/ratioStart)],
+                   soc[betterWorse == "worsening", .(indicator, pctWorse = (ratioEnd-ratioStart)/ratioStart)]))
+
+```
+
+The table below details the distribution of the starting and end ratios for those indicators that are improving and worsening in each domain. It highlights that despite some improvements, the degree of worsening is generally larger than the degree of improvements. This supports the trend analysis conducted above.
+
+Furthermore, it is quite clear that those social indicators that are improving were those already closer to the social foundation, whilst those worsening were already further away from the social foundation. 
+
+The story is more uniform for the ecological indicators. Both those ecological indicators that are improving and those worsening are overshooting the ecological ceiling at a relatively similar magnitude on average.
+
+```{r distribution of start and end ratios, warning = FALSE}
+
+knitr::kable(summary(ecoSoc3[,.(social_improving_ratioStart = ratioStart[domain == "social" & betterWorse == "improving"], 
+                   social_improving_ratioEnd = ratioEnd[domain == "social" & betterWorse == "improving"],
+                   social_worsening_ratioStart = ratioStart[domain == "social" & betterWorse == "worsening"], 
+                   social_worsening_ratioEnd = ratioEnd[domain == "social" & betterWorse == "worsening"])])
+             )
+
+knitr::kable(summary(ecoSoc3[,.(ecological_improving_ratioStart = ratioStart[domain == "ecological" & betterWorse == "improving"], 
+                   ecological_improving_ratioEnd = ratioEnd[domain == "ecological" & betterWorse == "improving"],
+                   ecological_worsening_ratioStart = ratioStart[domain == "ecological" & betterWorse == "worsening"], 
+                   ecological_worsening_ratioEnd = ratioEnd[domain == "ecological" & betterWorse == "worsening"])])
+             )
+
+```
+
+
+
+
+
+```{r social ambition, include=FALSE}
+
+#Finally, I for those social indicators that are improving, I calculate the increase in ambition required to meet the social foundations by 2030. The table below details the ambition required for each indicator
+
+knitr::kable(soc[betterWorse == "improving" & slopeD != 0, .(indicator, slopeD, slope, ambition = slopeD/slope)])
+#------------------------------------------------------------------------------------------
+#Comparing social indicators with significant improving trends with pathway to eliminate social shortfall by 2030 (N=17)
+#------------------------------------------------------------------------------------------
+#Pull out median and interquartile range of increased ambition needed to meet human needs by 2030 for improving trends  
+soc %>% 
+  filter(betterWorse == "improving") %>% 
+  rowwise() %>%
+  #mutate(ambition = (slopeD - slope)/ slope) %>%
+  mutate(ambition = slopeD / slope) %>% select(slopeD, slope, ambition) %>% 
+  ungroup() %>% summary() #filter(ambition > 2 & ambition <= 9)
+
+invisible(gc())
+
+# This table shows that based on the existing trends to achieve gender equality, access to public transport and secondary education tagets, the current trends need to double. 
+
+
+```
+
+# Limitations
+
+The fundamental limitation to this quantification exercise is the choice of measures adopted. Some of the measures I have used are taken directly from prior studies such as those accessed via the Sustainable Development Goals (SDG) database. However, due to a lack of data availability for some indicators, I had to choose other indicators to represent the dimensions of the doughnut that are appropriate at a national level. For example, in the ecological domain Co2 emissions is more appropriate than Co2 measured in parts per million, or similarly mean PM2.5 measurements are more appropriate for air pollution than *"Asymmetry between Earth's hemispheres of sunlight reaching the surface, due to differences in atmospheric particle concentration"*. Simply using planetary boundaries for the ecological ceiling does not map easily to a specific geographic area. Therefore, some of the ecological ceilings inadequately described a true ecological "ceiling". 
+
+This limitation becomes more acute within the social domain of the doughnut. Because not all social foundations are expressed as a proportion of the population that experience a shortfall, interpretation of some indicators is more complex and requires nuance. Not only was there a lack of data on the proportion of the population experiencing a shortfall in a certain indicator, but some national-level data sets used in previous studies are not tracked in  Australia. Perhaps the most notably for Australia, there is missing time series data on literacy rates. The [most recent data](https://www.abs.gov.au/statistics/people/education/programme-international-assessment-adult-competencies-australia/latest-release) is a cross-sectional survey from 2013. As mentioned, this has meant that I have needed to adopt some measures that make interpretation a bit more complex. This is the case for the indicators of racial equality, income inequality, access to housing, the homicide rate, access to healthcare and under-5 mortality rate. 
+
+Generally, for these indicators, instead of being interpreted as the proportion of the population falling below a minimum standard, these indicators are interpreted as either how "intense" the shortfall is *(such as the case for income inequality)* or how large the shortfall is in relation to an arbitrary "worst case" scenario *(such as the case for racial inequality)*. This adds some complexity that must be considered when interpreting the quantification of this doughnut. 
+
+Another key limitation that is not only applicable to this research but to all efforts quantify the doughnut, is the general inadequacy of some measures. This is something that impacts all quantified doughnuts because by choosing some indicators, you necessarily exclude others. Perhaps most notably in this example is the Gender Inequality Index *(GII)*. As mentioned in the [data sources document]( https://github.com/Michael-Morgan-Giles/essays/blob/main/doughnut_econ_update/data/data_collection.ipynb), the GII is a measure across the dimensions of reproductive health, empowerment, and labour market outcomes between women and men. Whilst this does offer a better indicator than a single dimension, it still fails to capture a large inequalities experienced across genders. For example, the GII does not consider any reproductive or caring labour that is still disproportionally conducted by women. Furthermore, the GII captures nothing about the [inter- and intra-household dynamics](https://ageconsearch.umn.edu/record/42661/files/dp27.pdf) that are key determinants of a woman's agency. Similarly, there is no reference to the disproportionate violence experienced by women, often at the hands of intimate partners. Finally, because the indicators for racial inequality and gender inequality are independently measured, they fundamentally lack an intersectional angle that differentiates the experiences of women who also experience oppression from a racial, class, or ability lens. As mentioned, this is a limitation experienced by other quantifications of the doughnut just as in this exercise. 
+
+Whilst this is a quantification of ecological and social problems, the quantification does not override qualitative analysis of these problems. Any quantification of the doughnut should be informed by the qualitative analysis along intersectional lines considering class, race, gender, ability and various other intersections of oppression. It is only with the underpinning of qualitative analysis that the choice of ecological and social indicators can be justified for inclusion in the doughnut. Thus, whilst the doughnut seeks to provide an answer the positive question of *"what are the ecological overshoots and social shortfalls?"*, it can only answer this positive question based on answers to the normative question of *"what ought the minimum ecological overshoot and shortfalls be?"*. 
+
+The doughnut as a concept rejects simplified metrics, such as GDP, as the goal of the economy. It is both the doughnut's strength as a potentially egalitarian measurement tool, and its potential weakness as a simple heuristic of societal performance, that requires more cognitive work to parse than a scalar number. Whilst this might be considered a weakness, it is not a fault. The doughnut is a tool that can reorient our society towards *"what it ought to be like"* and not just *"what it is like"*. Therefore, it is important to consider its limitations when both choosing what indicators to include, as well as interpreting the doughnut once it is quantified. 
+
+# Future Directions
+
+As the [paper itself highlights](https://www.nature.com/articles/s41586-025-09385-1?source=post_page-----30b7d6572192---------------------------------------), the doughnut is a constantly evolving and updating measurement tool to *"redefine and reorient progress"*. Therefore, there are a plethora of future directions this research can lead to. This includes *(but is not limited to)*:
+
+- Standardising collection, measurement and, reporting of quantified doughnuts in a timely manner similar to the Sustainable Development Goals or typical macroeconomic indicators by national statistics bodies.
+- Refining, discovering and or creating new indicators for inclusion in a quantified doughnut.
+- Incorporating qualitative analysis into the doughnut to underpin and inform the inclusions of indicators for measurement.
+- Further research into how the doughnut is perceived by the public in comparison to existing economic, social and ecological indicators,
+- Investigations into the pedagogy of doughnut economics. Where it is taught? How it is taught? How it is received by students? How is it used by those who study it? and it's relations to the economic mainstream.
+- Investigation into more disaggregated and local versions of the doughnut that can empower increased participation in the local economy i.e. doughtnut for state governments and local councils that are informed by the constituents of these localities.
+- Reframing the doughnut to incorporate and understand different Indigenous pedagogies and epistemologies. 
+
+All of the above pathways offer exciting and interesting future research opportunities for doughnut Economics in so-called Australia. 
