@@ -6,6 +6,6 @@ I adopt 19 social and 6 ecological indicators at the national level, with data c
 
 Below is the doughnut for the most recent year in the available time series, 2024. 
 
-![](/home/michael/Projects/aus_doughnut/outputs/doughnut_24_plot.png)
+![](https://raw.githubusercontent.com/Michael-Morgan-Giles/aus_doughnut/main/outputs/doughnut_24_plot.png)
 
 All information and data is available within this repository for replication.
